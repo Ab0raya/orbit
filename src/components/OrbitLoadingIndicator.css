@@ -1,0 +1,46 @@
+/* ============================================================
+   OrbitLoadingIndicator — pulsing solid logo loading indicator
+   ============================================================ */
+
+@keyframes orbit-logo-pulse {
+  0%   { opacity: var(--orbit-pulse-min, 0.12); }
+  50%  { opacity: 1; }
+  100% { opacity: var(--orbit-pulse-min, 0.12); }
+}
+
+.orbit-loading-indicator {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  user-select: none;
+}
+
+.orbit-loading-logo {
+  object-fit: contain;
+  animation: orbit-logo-pulse var(--orbit-pulse-speed, 1100ms) ease-in-out infinite;
+  will-change: opacity;
+}
+
+.orbit-loading-label {
+  font-family: 'JetBrains Mono', 'Menlo', monospace;
+  font-size: 11px;
+  letter-spacing: 1.4px;
+  color: rgba(255, 255, 255, 0.55);
+  text-transform: uppercase;
+  animation: orbit-logo-pulse var(--orbit-pulse-speed, 1100ms) ease-in-out infinite;
+  animation-delay: 100ms;
+}
+
+/* Full-area overlay */
+.orbit-loading-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.78);
+  backdrop-filter: blur(2px);
+  z-index: 50;
+  border-radius: inherit;
+}

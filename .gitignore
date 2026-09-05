@@ -1,0 +1,68 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Tauri build artifacts
+src-tauri/target
+
+# Flutter / Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+build/
+coverage/
+
+# Android
+android/.gradle/
+android/local.properties
+android/key.properties
+*.jks
+*.keystore
+
+# Secrets / credentials
+.env
+.env.*
+!.env.example
+auth.json
+**/auth.json
+credentials.json
+**/credentials.json
+
+# Orbit local data
+.orbit/
+*.db
+*.db-shm
+*.db-wal
+
+# OS
+Thumbs.db
+
+# Orbit local runtime / pairing state
+.orbit_paired_devices.json
+.orbit_test_pairing_code
+
+# Local OpenCode dependencies
+.opencode/node_modules/
