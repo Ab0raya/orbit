@@ -275,10 +275,12 @@ class TerminalController extends StateNotifier<TerminalState> {
   }
 
   Future<void> sendInput(String text) async {
-    if (state.activeSessionId == null) return;
+    final sessionId = state.activeSessionId ??
+        (state.sessions.isNotEmpty ? state.sessions.first.sessionId : null);
+    if (sessionId == null) return;
     try {
       final payload = TerminalInputPayload(
-        sessionId: state.activeSessionId!,
+        sessionId: sessionId,
         data: text,
       );
       await _client.sendRequest(

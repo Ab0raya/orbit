@@ -12,6 +12,7 @@ import 'package:orbit_mobile/protocol/models/file_models.dart';
 import 'package:orbit_mobile/shared/theme/orbit_colors.dart';
 
 import '../../../shared/widgets/orbit_loading_indicator.dart';
+import '../../terminal/views/terminal_screen.dart';
 
 class FileExplorerScreen extends ConsumerStatefulWidget {
   final String? initialPath;
@@ -38,6 +39,18 @@ class _FileExplorerScreenState extends ConsumerState<FileExplorerScreen> {
             .openDirectory(widget.initialPath!);
       });
     }
+  }
+
+  void _openInTerminal(String dirPath) {
+    if (dirPath.isEmpty) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => TerminalScreen(
+          initialCwd: dirPath,
+        ),
+      ),
+    );
   }
 
   void _openFile(String path, String name) {
@@ -488,6 +501,7 @@ class _FileExplorerScreenState extends ConsumerState<FileExplorerScreen> {
               onRefresh: () => notifier.refresh(),
               onCreateFolder: _promptCreateFolder,
               onCopyPath: () => _copyPath(state.currentPath, isDirectory: true),
+              onOpenTerminal: () => _openInTerminal(state.currentPath),
             ),
             // Inline Search Bar with compact Show Hidden Files toggle
             Padding(
@@ -572,51 +586,215 @@ class _FileExplorerScreenState extends ConsumerState<FileExplorerScreen> {
               ),
             ),
           Expanded(
-            child: state.isLoading && state.entries.isEmpty
-                ? const Center(child: OrbitLoadingIndicator(size: 40))
-                : state.entries.isEmpty
-                ? Center(
-                    child: Text(
-                      state.isLoading ? 'Loading...' : 'This folder is empty',
-                      style: const TextStyle(
-                        fontFamily: 'monospace',
-                        color: OrbitColors.orbitTextMuted,
-                        fontSize: 13,
-                      ),
-                    ),
-                  )
-                : RefreshIndicator(
-                    color: OrbitColors.orbitAccent,
-                    backgroundColor: OrbitColors.orbitCard,
-                    onRefresh: () => notifier.refresh(),
-                    child: ListView.builder(
-                      itemCount: state.entries.length,
-                      itemBuilder: (context, index) {
-                        final entry = state.entries[index];
-                        return FileEntryTile(
-                          entry: entry,
-                          onTap: () {
-                            if (entry.isDirectory) {
-                              notifier.openDirectory(entry.path);
-                            } else {
-                              _openFile(entry.path, entry.name);
-                            }
-                          },
-                          onRename: () => _promptRename(entry),
-                          onDelete: () => _promptDelete(entry),
-                          onCopyPath: () => _copyPath(
-                            entry.path,
-                            isDirectory: entry.isDirectory,
+            child: state.currentPath.isEmpty
+                ? _buildLocationsView(context, state, notifier)
+                : state.isLoading && state.entries.isEmpty
+                    ? const Center(child: OrbitLoadingIndicator(size: 40))
+                    : state.entries.isEmpty
+                        ? Center(
+                            child: Text(
+                              state.isLoading
+                                  ? 'Loading...'
+                                  : 'This folder is empty',
+                              style: const TextStyle(
+                                fontFamily: 'monospace',
+                                color: OrbitColors.orbitTextMuted,
+                                fontSize: 13,
+                              ),
+                            ),
+                          )
+                        : RefreshIndicator(
+                            color: OrbitColors.orbitAccent,
+                            backgroundColor: OrbitColors.orbitCard,
+                            onRefresh: () => notifier.refresh(),
+                            child: ListView.builder(
+                              itemCount: state.entries.length,
+                              itemBuilder: (context, index) {
+                                final entry = state.entries[index];
+                                return FileEntryTile(
+                                  entry: entry,
+                                  onTap: () {
+                                    if (entry.isDirectory) {
+                                      notifier.openDirectory(entry.path);
+                                    } else {
+                                      _openFile(entry.path, entry.name);
+                                    }
+                                  },
+                                  onRename: () => _promptRename(entry),
+                                  onDelete: () => _promptDelete(entry),
+                                  onCopyPath: () => _copyPath(
+                                    entry.path,
+                                    isDirectory: entry.isDirectory,
+                                  ),
+                                  onOpenTerminal: entry.isDirectory
+                                      ? () => _openInTerminal(entry.path)
+                                      : null,
+                                );
+                              },
+                            ),
                           ),
-                        );
-                      },
-                    ),
-                  ),
           ),
         ],
       ),
     ),
   );
+  }
+
+  Widget _buildLocationsView(
+    BuildContext context,
+    FileExplorerState state,
+    FileExplorerController notifier,
+  ) {
+    if (state.isLoading && state.roots.isEmpty) {
+      return const Center(child: OrbitLoadingIndicator(size: 40));
+    }
+
+    final driveRoots = state.roots
+        .where((r) => r.kind != 'home' && r.kind != 'workspace')
+        .toList();
+    final quickRoots = state.roots
+        .where((r) => r.kind == 'home' || r.kind == 'workspace')
+        .toList();
+    final effectiveDrives = driveRoots.isNotEmpty ? driveRoots : state.roots;
+
+    return RefreshIndicator(
+      color: OrbitColors.orbitAccent,
+      backgroundColor: OrbitColors.orbitCard,
+      onRefresh: () => notifier.openLocations(addToHistory: false),
+      child: ListView(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        children: [
+          _buildSectionHeader('LOCATIONS'),
+          const SizedBox(height: 8),
+          if (effectiveDrives.isEmpty)
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              alignment: Alignment.center,
+              child: const Text(
+                'No storage locations discovered',
+                style: TextStyle(
+                  fontFamily: 'monospace',
+                  color: OrbitColors.orbitTextMuted,
+                  fontSize: 12,
+                ),
+              ),
+            )
+          else
+            ...effectiveDrives.map((root) => _buildLocationCard(root, notifier)),
+
+          if (quickRoots.isNotEmpty && driveRoots.isNotEmpty) ...[
+            const SizedBox(height: 20),
+            _buildSectionHeader('QUICK ACCESS'),
+            const SizedBox(height: 8),
+            ...quickRoots.map((root) => _buildLocationCard(root, notifier)),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(String title) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            fontFamily: 'monospace',
+            fontSize: 11,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1.5,
+            color: OrbitColors.orbitTextMuted,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Container(
+          height: 1,
+          color: OrbitColors.orbitBorder,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLocationCard(FileRoot root, FileExplorerController notifier) {
+    IconData icon;
+    if (root.isRemovable || root.kind == 'removable') {
+      icon = Icons.usb_rounded;
+    } else if (root.kind == 'home') {
+      icon = Icons.home_outlined;
+    } else if (root.kind == 'workspace') {
+      icon = Icons.folder_special_outlined;
+    } else {
+      icon = Icons.storage_rounded;
+    }
+
+    final subtitle = root.label ??
+        (root.name.toUpperCase().startsWith('C:') ? 'System Drive' : 'Local Disk');
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: InkWell(
+        onTap: () => notifier.openDirectory(root.path),
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: const Color(0xFF0F0F0F),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: OrbitColors.orbitBorder),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: OrbitColors.orbitCard,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: OrbitColors.orbitBorder),
+                ),
+                child: Icon(
+                  icon,
+                  size: 18,
+                  color: OrbitColors.orbitTextPrimary,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      root.name,
+                      style: const TextStyle(
+                        fontFamily: 'monospace',
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        fontFamily: 'monospace',
+                        fontSize: 11,
+                        color: OrbitColors.orbitTextMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.chevron_right_rounded,
+                size: 18,
+                color: Colors.white38,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 

@@ -14,10 +14,15 @@ import 'package:orbit_mobile/protocol/models/file_models.dart';
 class MockFileExplorerWebSocketClient extends OrbitWebSocketClient {
   List<Map<String, dynamic>>? customEntries;
   List<Map<String, dynamic>>? customSearchResults;
+  List<Map<String, dynamic>>? customRoots;
+
+  final List<String> sentActions = [];
+  final List<dynamic> sentPayloads = [];
 
   MockFileExplorerWebSocketClient({
     this.customEntries,
     this.customSearchResults,
+    this.customRoots,
   });
 
   @override
@@ -26,13 +31,15 @@ class MockFileExplorerWebSocketClient extends OrbitWebSocketClient {
     Map<String, dynamic>? payload,
     Duration timeout = const Duration(seconds: 10),
   }) async {
+    sentActions.add(action);
+    sentPayloads.add(payload);
     if (action == 'files.roots') {
       return OrbitResponse(
         id: '1',
         action: action,
         success: true,
         payload: {
-          'roots': [
+          'roots': customRoots ?? [
             {'name': 'Home', 'path': '/home/aburaya'}
           ]
         },
@@ -712,6 +719,159 @@ void main() {
       expect(find.text('.orbit'), findsNothing);
       expect(find.text('.rustup'), findsNothing);
       expect(await storage.getShowHiddenFiles(), isFalse);
+    });
+  });
+
+  group('Multi-Drive and Mounted Volume Tests', () {
+    test('FileRoot parses label, kind, and isRemovable correctly', () {
+      final json = {
+        'name': 'D:\\',
+        'path': 'D:\\',
+        'label': 'Data',
+        'kind': 'drive',
+        'isRemovable': false,
+      };
+      final root = FileRoot.fromJson(json);
+      expect(root.name, 'D:\\');
+      expect(root.path, 'D:\\');
+      expect(root.label, 'Data');
+      expect(root.kind, 'drive');
+      expect(root.isRemovable, false);
+
+      final usbJson = {
+        'name': 'USB Drive',
+        'path': '/media/user/usb',
+        'label': 'External Drive',
+        'kind': 'removable',
+        'isRemovable': true,
+      };
+      final usbRoot = FileRoot.fromJson(usbJson);
+      expect(usbRoot.isRemovable, true);
+      expect(usbRoot.kind, 'removable');
+    });
+
+    testWidgets('FileExplorerScreen renders LOCATIONS section when at root', (tester) async {
+      final mockClient = MockFileExplorerWebSocketClient();
+      final storage = MockFileStorage();
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            webSocketClientProvider.overrideWithValue(mockClient),
+            localStorageProvider.overrideWithValue(storage),
+          ],
+          child: const MaterialApp(
+            home: FileExplorerScreen(),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      expect(find.text('LOCATIONS'), findsWidgets);
+      expect(find.text('Home'), findsOneWidget);
+    });
+
+    test('FileExplorerController navigateUp correctly returns to Locations from drive root', () async {
+      final mockClient = MockFileExplorerWebSocketClient();
+      final controller = FileExplorerController(mockClient);
+      controller.state = controller.state.copyWith(
+        roots: [
+          const FileRoot(name: 'C:\\', path: 'C:\\', label: 'System Drive', kind: 'drive'),
+          const FileRoot(name: 'D:\\', path: 'D:\\', label: 'Data', kind: 'drive'),
+        ],
+        currentPath: 'D:\\',
+      );
+
+      await controller.navigateUp();
+      expect(controller.state.currentPath, '');
+    });
+
+    test('FileExplorerController navigateUp correctly resolves Windows parent directory', () async {
+      final mockClient = MockFileExplorerWebSocketClient();
+      final controller = FileExplorerController(mockClient);
+      controller.state = controller.state.copyWith(
+        roots: [
+          const FileRoot(name: 'D:\\', path: 'D:\\', label: 'Data', kind: 'drive'),
+        ],
+        currentPath: 'D:\\Projects\\Orbit',
+      );
+
+      await controller.navigateUp();
+      expect(controller.state.currentPath, 'D:\\Projects');
+
+      await controller.navigateUp();
+      expect(controller.state.currentPath, 'D:\\');
+    });
+
+    test('FileExplorerController navigates paths with spaces intact', () async {
+      final mockClient = MockFileExplorerWebSocketClient(
+        customRoots: [
+          {'name': 'System Root', 'path': '/', 'label': 'System Drive', 'kind': 'drive'},
+          {'name': 'New Volume', 'path': '/run/media/aburaya/New Volume', 'label': 'Mounted Drive', 'kind': 'volume'},
+        ],
+      );
+      final controller = FileExplorerController(mockClient);
+      controller.state = controller.state.copyWith(
+        roots: [
+          const FileRoot(name: 'System Root', path: '/', label: 'System Drive', kind: 'drive'),
+          const FileRoot(name: 'New Volume', path: '/run/media/aburaya/New Volume', label: 'Mounted Drive', kind: 'volume'),
+        ],
+        currentPath: '/run/media/aburaya/New Volume/The Cave/projects',
+      );
+
+      // 1. Navigate up to The Cave
+      await controller.navigateUp();
+      expect(controller.state.currentPath, '/run/media/aburaya/New Volume/The Cave');
+
+      // 2. Navigate up to New Volume drive root
+      await controller.navigateUp();
+      expect(controller.state.currentPath, '/run/media/aburaya/New Volume');
+
+      // 3. Navigate up from drive root returns to Locations
+      await controller.navigateUp();
+      expect(controller.state.currentPath, '');
+    });
+
+    test('FileExplorerController openDirectory preserves paths with spaces in WebSocket payload', () async {
+      final mockClient = MockFileExplorerWebSocketClient();
+      final controller = FileExplorerController(mockClient);
+
+      const spacePath = '/run/media/aburaya/New Volume/The Cave/projects';
+      await controller.openDirectory(spacePath);
+
+      expect(mockClient.sentActions, contains('files.list'));
+      final listIndex = mockClient.sentActions.lastIndexOf('files.list');
+      final payload = mockClient.sentPayloads[listIndex] as Map<String, dynamic>;
+      expect(payload['path'], spacePath);
+    });
+
+    testWidgets('FilePathBar renders Open in Terminal button when currentPath is non-empty', (tester) async {
+      bool terminalOpened = false;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: FilePathBar(
+              currentPath: '/run/media/aburaya/New Volume/The Cave/projects',
+              onNavigateUp: () {},
+              onRefresh: () {},
+              onCreateFolder: () {},
+              onOpenTerminal: () => terminalOpened = true,
+            ),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      final terminalBtn = find.byTooltip('Open Directory in Terminal');
+      expect(terminalBtn, findsOneWidget);
+
+      await tester.tap(terminalBtn);
+      await tester.pumpAndSettle();
+
+      expect(terminalOpened, isTrue);
     });
   });
 }

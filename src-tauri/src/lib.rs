@@ -15,6 +15,14 @@ use crate::agent::OrbitAgent;
 use crate::commands::AppState;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    #[cfg(target_os = "linux")]
+    {
+        // Fix Linux Wayland/NVIDIA black screen: WebKitGTK DMA-BUF renderer fails on Wayland with NVIDIA drivers
+        if std::env::var_os("WEBKIT_DISABLE_DMABUF_RENDERER").is_none() {
+            std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+        }
+    }
+
     let agent = Arc::new(OrbitAgent::new(None));
     let agent_setup = Arc::clone(&agent);
     let agent_shutdown = Arc::clone(&agent);

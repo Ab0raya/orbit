@@ -6,6 +6,7 @@ import 'package:xterm/xterm.dart';
 import '../../../protocol/models/terminal_models.dart';
 import '../../../shared/theme/orbit_colors.dart';
 import '../controllers/terminal_controller.dart';
+import 'command_toolbox_screen.dart';
 import '../../../shared/widgets/orbit_loading_indicator.dart';
 
 const orbitTerminalTheme = TerminalTheme(
@@ -379,6 +380,50 @@ class _TerminalScreenState extends ConsumerState<TerminalScreen> {
           ],
         ),
         actions: [
+          // Command Toolbox Button
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: InkWell(
+              key: const Key('terminal_toolbox_button'),
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const CommandToolboxScreen(),
+                  ),
+                );
+              },
+              borderRadius: BorderRadius.circular(16),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF141414),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: OrbitColors.orbitBorder),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.bolt_rounded,
+                      size: 13,
+                      color: OrbitColors.orbitAccentCyan,
+                    ),
+                    SizedBox(width: 4),
+                    Text(
+                      'Tools',
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.bold,
+                        fontFamily: 'monospace',
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 6),
           // Connected Pill
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 8),

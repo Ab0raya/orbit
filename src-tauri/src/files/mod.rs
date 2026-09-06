@@ -514,4 +514,59 @@ mod tests {
 
         cleanup_test_sandbox(sandbox);
     }
+
+    // 14. Files operations on paths with spaces
+    #[test]
+    fn test_files_operations_with_spaces() {
+        let (sandbox, mgr) = setup_test_sandbox();
+
+        // 1. Create nested directory structure with spaces
+        let nested_dir = sandbox.join("New Volume").join("The Cave").join("projects");
+        fs::create_dir_all(&nested_dir).unwrap();
+
+        // 2. List directory with spaces
+        let list_res = mgr.list(&nested_dir.to_string_lossy()).unwrap();
+        assert_eq!(list_res.entries.len(), 0);
+
+        // 3. Write file with spaces
+        let file_path = nested_dir.join("orbit test document.txt");
+        let write_res = mgr
+            .write(&file_path.to_string_lossy(), "hello orbit from space path")
+            .unwrap();
+        assert!(write_res.success);
+
+        // 4. Read file with spaces
+        let read_res = mgr.read(&file_path.to_string_lossy()).unwrap();
+        assert_eq!(read_res.content, "hello orbit from space path");
+
+        // 5. Mkdir directory with spaces
+        let sub_dir = nested_dir.join("subfolder with spaces");
+        let mkdir_res = mgr.mkdir(&sub_dir.to_string_lossy()).unwrap();
+        assert!(Path::new(&mkdir_res).exists());
+
+        // 6. Rename file with spaces
+        let renamed_file = nested_dir.join("orbit renamed document.txt");
+        mgr.rename(&file_path.to_string_lossy(), &renamed_file.to_string_lossy())
+            .unwrap();
+        assert!(!file_path.exists());
+        assert!(renamed_file.exists());
+
+        // 7. Search in directory with spaces
+        let search_res = mgr
+            .search(
+                &nested_dir.to_string_lossy(),
+                "orbit from space",
+                "content",
+                None,
+            )
+            .unwrap();
+        assert_eq!(search_res.results.len(), 1);
+        assert_eq!(search_res.results[0].name, "orbit renamed document.txt");
+
+        // 8. Delete file with spaces
+        mgr.delete(&renamed_file.to_string_lossy()).unwrap();
+        assert!(!renamed_file.exists());
+
+        cleanup_test_sandbox(sandbox);
+    }
 }

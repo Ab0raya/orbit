@@ -1,5 +1,5 @@
 use crate::protocol::errors::ProtocolError;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 pub const MIN_COLS: u16 = 20;
 pub const MAX_COLS: u16 = 500;

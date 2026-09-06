@@ -128,7 +128,7 @@ class FileExplorerController extends StateNotifier<FileExplorerState> {
     setShowHiddenFiles(!state.showHiddenFiles);
   }
 
-  Future<void> initialize() async {
+  Future<void> initialize({bool openFirstRoot = false}) async {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
       final res = await _client.sendRequest('files.roots');
@@ -140,11 +140,56 @@ class FileExplorerController extends StateNotifier<FileExplorerState> {
 
         state = state.copyWith(roots: roots);
 
-        if (roots.isNotEmpty) {
+        if (openFirstRoot && roots.isNotEmpty) {
           await openDirectory(roots.first.path, addToHistory: true);
         } else {
-          await openDirectory('', addToHistory: true);
+          state = state.copyWith(
+            currentPath: '',
+            entries: [],
+            rawEntries: [],
+            isLoading: false,
+            history: const [''],
+            clearError: true,
+          );
         }
+      } else {
+        state = state.copyWith(
+          isLoading: false,
+          errorMessage: res.error?.message ?? 'Failed to load browse roots',
+        );
+      }
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: e.toString(),
+      );
+    }
+  }
+
+  Future<void> openLocations({bool addToHistory = true}) async {
+    state = state.copyWith(isLoading: true, clearError: true);
+    try {
+      final res = await _client.sendRequest('files.roots');
+      if (res.success && res.payload != null) {
+        final rawRoots = res.payload!['roots'] as List<dynamic>? ?? [];
+        final roots = rawRoots
+            .map((r) => FileRoot.fromJson(r as Map<String, dynamic>))
+            .toList();
+
+        final updatedHistory = List<String>.from(state.history);
+        if (addToHistory && (updatedHistory.isEmpty || updatedHistory.last.isNotEmpty)) {
+          updatedHistory.add('');
+        }
+
+        state = state.copyWith(
+          currentPath: '',
+          roots: roots,
+          entries: [],
+          rawEntries: [],
+          isLoading: false,
+          history: updatedHistory,
+          clearError: true,
+        );
       } else {
         state = state.copyWith(
           isLoading: false,
@@ -196,46 +241,63 @@ class FileExplorerController extends StateNotifier<FileExplorerState> {
     final current = state.currentPath.trim();
     if (current.isEmpty) return;
 
+    // If at root of a drive or filesystem, navigate to LOCATIONS
+    final isRoot = current == '/' ||
+        RegExp(r'^[a-zA-Z]:[/\\]?$').hasMatch(current) ||
+        state.roots.any((r) =>
+            r.path == current ||
+            '${r.path}/' == current ||
+            '${r.path}\\' == current);
+
+    if (isRoot) {
+      await openLocations(addToHistory: true);
+      return;
+    }
+
     // Determine parent path
     String parent;
-    if (current.contains('/')) {
+    if (current.contains('\\')) {
+      final lastBackslash = current.lastIndexOf('\\');
+      if (lastBackslash > 0) {
+        parent = current.substring(0, lastBackslash);
+        if (RegExp(r'^[a-zA-Z]:$').hasMatch(parent)) {
+          parent = '$parent\\';
+        }
+      } else {
+        parent = '';
+      }
+    } else if (current.contains('/')) {
       final lastSlash = current.lastIndexOf('/');
       if (lastSlash == 0) {
         parent = '/';
       } else if (lastSlash > 0) {
         parent = current.substring(0, lastSlash);
+        if (RegExp(r'^[a-zA-Z]:$').hasMatch(parent)) {
+          parent = '$parent/';
+        }
       } else {
-        parent = current;
-      }
-    } else if (current.contains('\\')) {
-      final lastBackslash = current.lastIndexOf('\\');
-      if (lastBackslash > 0) {
-        parent = current.substring(0, lastBackslash);
-      } else {
-        parent = current;
+        parent = '';
       }
     } else {
-      return;
+      parent = '';
     }
 
-    if (parent != current) {
+    if (parent.isEmpty) {
+      await openLocations(addToHistory: true);
+    } else if (parent != current) {
       await openDirectory(parent, addToHistory: true);
     }
   }
 
   Future<void> goHome() async {
-    if (state.roots.isNotEmpty) {
-      await openDirectory(state.roots.first.path, addToHistory: true);
-    } else {
-      await initialize();
-    }
+    await openLocations(addToHistory: true);
   }
 
   Future<void> refresh() async {
     if (state.currentPath.isNotEmpty) {
       await openDirectory(state.currentPath, addToHistory: false);
     } else {
-      await initialize();
+      await openLocations(addToHistory: false);
     }
   }
 

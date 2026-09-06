@@ -9,6 +9,7 @@ class FileEntryTile extends StatelessWidget {
   final VoidCallback onRename;
   final VoidCallback onDelete;
   final VoidCallback? onCopyPath;
+  final VoidCallback? onOpenTerminal;
 
   const FileEntryTile({
     super.key,
@@ -17,6 +18,7 @@ class FileEntryTile extends StatelessWidget {
     required this.onRename,
     required this.onDelete,
     this.onCopyPath,
+    this.onOpenTerminal,
   });
 
   String get _formattedDate {
@@ -93,6 +95,8 @@ class FileEntryTile extends StatelessWidget {
               onSelected: (action) {
                 if (action == 'copy_path') {
                   onCopyPath?.call();
+                } else if (action == 'open_terminal') {
+                  onOpenTerminal?.call();
                 } else if (action == 'rename') {
                   onRename();
                 } else if (action == 'delete') {
@@ -100,6 +104,23 @@ class FileEntryTile extends StatelessWidget {
                 }
               },
               itemBuilder: (context) => [
+                if (isDir && onOpenTerminal != null)
+                  const PopupMenuItem(
+                    value: 'open_terminal',
+                    child: Row(
+                      children: [
+                        Icon(Icons.terminal_rounded, size: 16, color: OrbitColors.orbitAccentCyan),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Open in Terminal',
+                            style: TextStyle(color: Colors.white, fontSize: 13),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 PopupMenuItem(
                   value: 'copy_path',
                   child: Row(

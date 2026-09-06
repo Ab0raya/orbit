@@ -8,6 +8,7 @@ class FilePathBar extends StatelessWidget {
   final VoidCallback onCreateFolder;
   final VoidCallback? onCopyPath;
   final VoidCallback? onGoHome;
+  final VoidCallback? onOpenTerminal;
 
   const FilePathBar({
     super.key,
@@ -17,6 +18,7 @@ class FilePathBar extends StatelessWidget {
     required this.onCreateFolder,
     this.onCopyPath,
     this.onGoHome,
+    this.onOpenTerminal,
   });
 
   @override
@@ -92,7 +94,7 @@ class FilePathBar extends StatelessWidget {
                     scrollDirection: Axis.horizontal,
                     reverse: true,
                     child: Text(
-                      currentPath.isEmpty ? '/' : currentPath,
+                      currentPath.isEmpty ? 'LOCATIONS' : currentPath,
                       style: const TextStyle(
                         fontFamily: 'monospace',
                         fontSize: 12.5,
@@ -106,6 +108,16 @@ class FilePathBar extends StatelessWidget {
             ),
           ),
           // Action Buttons
+          if (onOpenTerminal != null && currentPath.isNotEmpty) ...[
+            IconButton(
+              icon: const Icon(Icons.terminal_rounded, size: 18),
+              color: OrbitColors.orbitAccentCyan,
+              tooltip: 'Open Directory in Terminal',
+              onPressed: onOpenTerminal,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            ),
+          ],
           if (onCopyPath != null) ...[
             IconButton(
               icon: const Icon(Icons.folder_open_outlined, size: 18),

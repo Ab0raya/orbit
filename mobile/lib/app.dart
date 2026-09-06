@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'shared/theme/orbit_theme.dart';
-import 'features/connection/views/connection_screen.dart';
+import 'features/splash/views/orbit_splash_screen.dart';
 
 class OrbitApp extends StatelessWidget {
   const OrbitApp({super.key});
@@ -11,7 +11,8 @@ class OrbitApp extends StatelessWidget {
       title: 'Orbit Mobile',
       debugShowCheckedModeBanner: false,
       theme: OrbitTheme.darkTheme,
-      home: const ConnectionScreen(),
+      home: const OrbitSplashScreen(),
     );
   }
 }
+

@@ -3,13 +3,19 @@ use std::path::PathBuf;
 use std::sync::RwLock;
 
 use super::operations::{self, FileEntry, FileError, DEFAULT_MAX_READ_BYTES};
-use super::path::{default_browse_roots, is_within_scopes, normalize_path};
+use super::path::{discover_system_roots, is_within_scopes, normalize_path};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct FileRoot {
     pub name: String,
     pub path: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub kind: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_removable: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -49,8 +55,8 @@ impl Default for FileManager {
 
 impl FileManager {
     pub fn new() -> Self {
-        let roots = default_browse_roots();
-        let mut scopes: Vec<PathBuf> = roots.into_iter().map(|(_, p)| p).collect();
+        let roots = discover_system_roots();
+        let mut scopes: Vec<PathBuf> = roots.into_iter().map(|r| r.path).collect();
         if let Ok(cwd) = std::env::current_dir() {
             if !scopes.contains(&cwd) {
                 scopes.push(cwd);
@@ -70,11 +76,22 @@ impl FileManager {
     }
 
     pub fn roots(&self) -> Vec<FileRoot> {
-        default_browse_roots()
+        let discovered = discover_system_roots();
+        if let Ok(mut scopes) = self.allowed_scopes.write() {
+            for r in &discovered {
+                if !scopes.contains(&r.path) {
+                    scopes.push(r.path.clone());
+                }
+            }
+        }
+        discovered
             .into_iter()
-            .map(|(name, p)| FileRoot {
-                name,
-                path: p.to_string_lossy().to_string(),
+            .map(|r| FileRoot {
+                name: r.name,
+                path: r.path.to_string_lossy().to_string(),
+                label: r.label,
+                kind: Some(r.kind),
+                is_removable: Some(r.is_removable),
             })
             .collect()
     }

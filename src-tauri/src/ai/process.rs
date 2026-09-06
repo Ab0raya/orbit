@@ -217,4 +217,3 @@ mod tests {
         OpenCodeRunner::cancel_child(&mut res.child, res.pid).await;
     }
 }
-

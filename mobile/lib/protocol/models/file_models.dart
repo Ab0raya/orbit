@@ -1,22 +1,34 @@
 class FileRoot {
   final String name;
   final String path;
+  final String? label;
+  final String? kind;
+  final bool isRemovable;
 
   const FileRoot({
     required this.name,
     required this.path,
+    this.label,
+    this.kind,
+    this.isRemovable = false,
   });
 
   factory FileRoot.fromJson(Map<String, dynamic> json) {
     return FileRoot(
       name: json['name'] as String? ?? '',
       path: json['path'] as String? ?? '',
+      label: json['label'] as String?,
+      kind: json['kind'] as String?,
+      isRemovable: json['isRemovable'] as bool? ?? false,
     );
   }
 
   Map<String, dynamic> toJson() => {
         'name': name,
         'path': path,
+        if (label != null) 'label': label,
+        if (kind != null) 'kind': kind,
+        'isRemovable': isRemovable,
       };
 }
 
