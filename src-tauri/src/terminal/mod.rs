@@ -22,7 +22,12 @@ mod tests {
         assert_eq!(dim_err.unwrap_err().code, "INVALID_DIMENSIONS");
 
         // 2. Invalid cwd
-        let cwd_err = mgr.create_session("dev_1", Some("/nonexistent/random/dir/xyz"), Some(80), Some(24));
+        let cwd_err = mgr.create_session(
+            "dev_1",
+            Some("/nonexistent/random/dir/xyz"),
+            Some(80),
+            Some(24),
+        );
         assert!(cwd_err.is_err());
         assert_eq!(cwd_err.unwrap_err().code, "INVALID_CWD");
 
@@ -54,7 +59,9 @@ mod tests {
         // Wait a short moment for PTY to process echo
         std::thread::sleep(std::time::Duration::from_millis(150));
 
-        let history = mgr.get_history(&session.session_id, "dev_1").expect("Failed to get history");
+        let history = mgr
+            .get_history(&session.session_id, "dev_1")
+            .expect("Failed to get history");
         assert!(history.contains("ORBIT_UNIT_TEST"));
 
         // 8. Kill session
@@ -88,9 +95,11 @@ mod tests {
                 }
             }
         }
-        assert!(found, "PTY should preserve and stream raw ANSI sequences for emulator consumption");
+        assert!(
+            found,
+            "PTY should preserve and stream raw ANSI sequences for emulator consumption"
+        );
 
         let _ = mgr.kill_session(&session.session_id, "dev_ansi");
     }
 }
-

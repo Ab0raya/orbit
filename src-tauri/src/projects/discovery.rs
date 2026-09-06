@@ -30,7 +30,10 @@ pub fn default_project_roots() -> Vec<(String, PathBuf)> {
         // Check for common project directories
         for sub in &["Projects", "Development", "Workspace", "Repos", "code"] {
             let candidate = home_path.join(sub);
-            if candidate.exists() && candidate.is_dir() && !roots.iter().any(|(_, p)| p == &candidate) {
+            if candidate.exists()
+                && candidate.is_dir()
+                && !roots.iter().any(|(_, p)| p == &candidate)
+            {
                 roots.push((sub.to_string(), candidate));
             }
         }
@@ -99,10 +102,12 @@ fn evaluate_project(path: &Path) -> Option<ProjectSummary> {
             .to_string();
 
         let git_summary = if is_git {
-            GitManager::status(path).ok().map(|status| ProjectGitSummary {
-                branch: status.branch,
-                is_dirty: !status.clean,
-            })
+            GitManager::status(path)
+                .ok()
+                .map(|status| ProjectGitSummary {
+                    branch: status.branch,
+                    is_dirty: !status.clean,
+                })
         } else {
             None
         };
@@ -110,7 +115,11 @@ fn evaluate_project(path: &Path) -> Option<ProjectSummary> {
         Some(ProjectSummary {
             name,
             path: path.to_string_lossy().to_string(),
-            kind: if is_git { "git".to_string() } else { "directory".to_string() },
+            kind: if is_git {
+                "git".to_string()
+            } else {
+                "directory".to_string()
+            },
             project_type,
             git: git_summary,
         })

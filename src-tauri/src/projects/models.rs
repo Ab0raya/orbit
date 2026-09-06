@@ -12,7 +12,7 @@ pub struct ProjectGitSummary {
 pub struct ProjectSummary {
     pub name: String,
     pub path: String,
-    pub kind: String, // "git" | "directory"
+    pub kind: String,         // "git" | "directory"
     pub project_type: String, // "flutter", "node", "rust", "python", "android", "generic"
     pub git: Option<ProjectGitSummary>,
 }

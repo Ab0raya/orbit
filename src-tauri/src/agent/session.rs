@@ -48,7 +48,8 @@ impl SessionManager {
         let loaded_devices = {
             let mut map = HashMap::new();
             if let Ok(content) = std::fs::read_to_string(".orbit_paired_devices.json") {
-                if let Ok(devices) = serde_json::from_str::<HashMap<String, PairedDevice>>(&content) {
+                if let Ok(devices) = serde_json::from_str::<HashMap<String, PairedDevice>>(&content)
+                {
                     for (id, mut dev) in devices {
                         dev.connected = false;
                         map.insert(id, dev);
@@ -184,7 +185,9 @@ impl SessionManager {
             // Unpair and unbind prior sessions for this device ID to prevent duplicates
             let stale_connections: Vec<String> = lock
                 .iter()
-                .filter(|(cid, s)| s.device_id.as_deref() == Some(&device_id) && cid.as_str() != connection_id)
+                .filter(|(cid, s)| {
+                    s.device_id.as_deref() == Some(&device_id) && cid.as_str() != connection_id
+                })
                 .map(|(cid, _)| cid.clone())
                 .collect();
 
@@ -251,10 +254,12 @@ impl SessionManager {
                 .paired_devices
                 .read()
                 .map_err(|e| format!("Failed to acquire devices lock: {}", e))?;
-            dev_lock
-                .get(device_id)
-                .cloned()
-                .ok_or_else(|| format!("Device '{}' is not registered as a paired device", device_id))?
+            dev_lock.get(device_id).cloned().ok_or_else(|| {
+                format!(
+                    "Device '{}' is not registered as a paired device",
+                    device_id
+                )
+            })?
         };
 
         // 2. Associate session and supersede any older connection for this device
@@ -266,7 +271,9 @@ impl SessionManager {
 
             let stale_connections: Vec<String> = lock
                 .iter()
-                .filter(|(cid, s)| s.device_id.as_deref() == Some(device_id) && cid.as_str() != connection_id)
+                .filter(|(cid, s)| {
+                    s.device_id.as_deref() == Some(device_id) && cid.as_str() != connection_id
+                })
                 .map(|(cid, _)| cid.clone())
                 .collect();
 
@@ -429,7 +436,10 @@ mod tests {
         // Exactly one paired device in registry and exactly 1 active connected device
         assert_eq!(mgr.paired_devices_total_count(), 1);
         assert_eq!(mgr.paired_connected_count(), 1);
-        assert!(!mgr.is_session_paired(&conn1), "conn1 should have been superseded");
+        assert!(
+            !mgr.is_session_paired(&conn1),
+            "conn1 should have been superseded"
+        );
         assert!(mgr.is_session_paired(&conn2), "conn2 should be active");
     }
 

@@ -2,7 +2,7 @@ pub mod manager;
 pub mod operations;
 pub mod path;
 
-pub use manager::{FileManager, FileListResult, FileReadResult, FileRoot, FileWriteResult};
+pub use manager::{FileListResult, FileManager, FileReadResult, FileRoot, FileWriteResult};
 pub use operations::{
     detect_file_category, detect_mime_type, extract_image_dimensions, read_binary_file,
     search_files, BinaryReadResult, FileCategory, FileEntry, FileError, FileSearchResult,
@@ -59,7 +59,9 @@ mod tests {
         let path_str = file_path.to_string_lossy().to_string();
 
         // 1. Write file atomically
-        let write_res = mgr.write(&path_str, "# Orbit Notes\nRemote file test").unwrap();
+        let write_res = mgr
+            .write(&path_str, "# Orbit Notes\nRemote file test")
+            .unwrap();
         assert_eq!(write_res.size, 30);
         assert!(write_res.success);
 
@@ -122,7 +124,10 @@ mod tests {
         assert!(res.is_err());
         match res.unwrap_err() {
             FileError::PermissionDenied(_) => {}
-            other => panic!("Expected PermissionDenied for traversal attempt, got {:?}", other),
+            other => panic!(
+                "Expected PermissionDenied for traversal attempt, got {:?}",
+                other
+            ),
         }
 
         cleanup_test_sandbox(sandbox);
@@ -153,54 +158,150 @@ mod tests {
     // 1. image file detection
     #[test]
     fn test_image_file_detection() {
-        assert_eq!(detect_file_category(Path::new("photo.png")), FileCategory::Image);
-        assert_eq!(detect_file_category(Path::new("pic.jpg")), FileCategory::Image);
-        assert_eq!(detect_file_category(Path::new("pic.jpeg")), FileCategory::Image);
-        assert_eq!(detect_file_category(Path::new("anim.gif")), FileCategory::Image);
-        assert_eq!(detect_file_category(Path::new("graphic.webp")), FileCategory::Image);
-        assert_eq!(detect_file_category(Path::new("bitmap.bmp")), FileCategory::Image);
-        assert_eq!(detect_file_category(Path::new("vector.svg")), FileCategory::Image);
+        assert_eq!(
+            detect_file_category(Path::new("photo.png")),
+            FileCategory::Image
+        );
+        assert_eq!(
+            detect_file_category(Path::new("pic.jpg")),
+            FileCategory::Image
+        );
+        assert_eq!(
+            detect_file_category(Path::new("pic.jpeg")),
+            FileCategory::Image
+        );
+        assert_eq!(
+            detect_file_category(Path::new("anim.gif")),
+            FileCategory::Image
+        );
+        assert_eq!(
+            detect_file_category(Path::new("graphic.webp")),
+            FileCategory::Image
+        );
+        assert_eq!(
+            detect_file_category(Path::new("bitmap.bmp")),
+            FileCategory::Image
+        );
+        assert_eq!(
+            detect_file_category(Path::new("vector.svg")),
+            FileCategory::Image
+        );
     }
 
     // 2. text file detection
     #[test]
     fn test_text_file_detection() {
-        assert_eq!(detect_file_category(Path::new("readme.txt")), FileCategory::Text);
-        assert_eq!(detect_file_category(Path::new("doc.md")), FileCategory::Text);
-        assert_eq!(detect_file_category(Path::new("app.log")), FileCategory::Text);
-        assert_eq!(detect_file_category(Path::new("data.json")), FileCategory::Text);
-        assert_eq!(detect_file_category(Path::new("config.yaml")), FileCategory::Text);
-        assert_eq!(detect_file_category(Path::new("config.yml")), FileCategory::Text);
-        assert_eq!(detect_file_category(Path::new("feed.xml")), FileCategory::Text);
-        assert_eq!(detect_file_category(Path::new("table.csv")), FileCategory::Text);
+        assert_eq!(
+            detect_file_category(Path::new("readme.txt")),
+            FileCategory::Text
+        );
+        assert_eq!(
+            detect_file_category(Path::new("doc.md")),
+            FileCategory::Text
+        );
+        assert_eq!(
+            detect_file_category(Path::new("app.log")),
+            FileCategory::Text
+        );
+        assert_eq!(
+            detect_file_category(Path::new("data.json")),
+            FileCategory::Text
+        );
+        assert_eq!(
+            detect_file_category(Path::new("config.yaml")),
+            FileCategory::Text
+        );
+        assert_eq!(
+            detect_file_category(Path::new("config.yml")),
+            FileCategory::Text
+        );
+        assert_eq!(
+            detect_file_category(Path::new("feed.xml")),
+            FileCategory::Text
+        );
+        assert_eq!(
+            detect_file_category(Path::new("table.csv")),
+            FileCategory::Text
+        );
         assert_eq!(detect_file_category(Path::new(".env")), FileCategory::Text);
     }
 
     // 3. code file detection
     #[test]
     fn test_code_file_detection() {
-        assert_eq!(detect_file_category(Path::new("main.dart")), FileCategory::Code);
-        assert_eq!(detect_file_category(Path::new("lib.rs")), FileCategory::Code);
-        assert_eq!(detect_file_category(Path::new("app.ts")), FileCategory::Code);
-        assert_eq!(detect_file_category(Path::new("view.tsx")), FileCategory::Code);
-        assert_eq!(detect_file_category(Path::new("script.js")), FileCategory::Code);
-        assert_eq!(detect_file_category(Path::new("comp.jsx")), FileCategory::Code);
-        assert_eq!(detect_file_category(Path::new("server.py")), FileCategory::Code);
-        assert_eq!(detect_file_category(Path::new("Main.java")), FileCategory::Code);
-        assert_eq!(detect_file_category(Path::new("App.kt")), FileCategory::Code);
-        assert_eq!(detect_file_category(Path::new("main.go")), FileCategory::Code);
-        assert_eq!(detect_file_category(Path::new("index.html")), FileCategory::Code);
-        assert_eq!(detect_file_category(Path::new("style.css")), FileCategory::Code);
-        assert_eq!(detect_file_category(Path::new("run.sh")), FileCategory::Code);
+        assert_eq!(
+            detect_file_category(Path::new("main.dart")),
+            FileCategory::Code
+        );
+        assert_eq!(
+            detect_file_category(Path::new("lib.rs")),
+            FileCategory::Code
+        );
+        assert_eq!(
+            detect_file_category(Path::new("app.ts")),
+            FileCategory::Code
+        );
+        assert_eq!(
+            detect_file_category(Path::new("view.tsx")),
+            FileCategory::Code
+        );
+        assert_eq!(
+            detect_file_category(Path::new("script.js")),
+            FileCategory::Code
+        );
+        assert_eq!(
+            detect_file_category(Path::new("comp.jsx")),
+            FileCategory::Code
+        );
+        assert_eq!(
+            detect_file_category(Path::new("server.py")),
+            FileCategory::Code
+        );
+        assert_eq!(
+            detect_file_category(Path::new("Main.java")),
+            FileCategory::Code
+        );
+        assert_eq!(
+            detect_file_category(Path::new("App.kt")),
+            FileCategory::Code
+        );
+        assert_eq!(
+            detect_file_category(Path::new("main.go")),
+            FileCategory::Code
+        );
+        assert_eq!(
+            detect_file_category(Path::new("index.html")),
+            FileCategory::Code
+        );
+        assert_eq!(
+            detect_file_category(Path::new("style.css")),
+            FileCategory::Code
+        );
+        assert_eq!(
+            detect_file_category(Path::new("run.sh")),
+            FileCategory::Code
+        );
     }
 
     // 4. unknown binary detection
     #[test]
     fn test_unknown_binary_detection() {
-        assert_eq!(detect_file_category(Path::new("blob.bin")), FileCategory::Binary);
-        assert_eq!(detect_file_category(Path::new("firmware.dat")), FileCategory::Binary);
-        assert_eq!(detect_file_category(Path::new("archive.tar.gz")), FileCategory::Binary);
-        assert_eq!(detect_file_category(Path::new("program.exe")), FileCategory::Binary);
+        assert_eq!(
+            detect_file_category(Path::new("blob.bin")),
+            FileCategory::Binary
+        );
+        assert_eq!(
+            detect_file_category(Path::new("firmware.dat")),
+            FileCategory::Binary
+        );
+        assert_eq!(
+            detect_file_category(Path::new("archive.tar.gz")),
+            FileCategory::Binary
+        );
+        assert_eq!(
+            detect_file_category(Path::new("program.exe")),
+            FileCategory::Binary
+        );
     }
 
     // 5. oversized file rejection
@@ -212,7 +313,9 @@ mod tests {
         fs::write(&big_file, vec![0x42; 100]).unwrap();
 
         // Reading with max_bytes = 50 should return metadata with is_too_large: true and content: None
-        let res = mgr.read_binary(&big_file.to_string_lossy(), Some(50)).unwrap();
+        let res = mgr
+            .read_binary(&big_file.to_string_lossy(), Some(50))
+            .unwrap();
         assert!(res.is_too_large);
         assert!(res.content.is_none());
         assert_eq!(res.size, 100);
@@ -297,13 +400,17 @@ mod tests {
         fs::write(&file_c, "# Architecture Doc").unwrap();
 
         // Search for "readme" (case-insensitive)
-        let res = mgr.search(&sandbox.to_string_lossy(), "readme", "name", None).unwrap();
+        let res = mgr
+            .search(&sandbox.to_string_lossy(), "readme", "name", None)
+            .unwrap();
         assert_eq!(res.results.len(), 1);
         assert_eq!(res.results[0].name, "README.md");
         assert!(!res.results[0].is_directory);
 
         // Search for ".md"
-        let res_md = mgr.search(&sandbox.to_string_lossy(), ".md", "name", None).unwrap();
+        let res_md = mgr
+            .search(&sandbox.to_string_lossy(), ".md", "name", None)
+            .unwrap();
         assert_eq!(res_md.results.len(), 2);
 
         cleanup_test_sandbox(sandbox);
@@ -319,11 +426,22 @@ mod tests {
         fs::write(&file_a, "line 1\nline 2: UNIQUE_KEYWORD_ORBIT\nline 3").unwrap();
         fs::write(&file_b, "// no match here\nlet x = 42;").unwrap();
 
-        let res = mgr.search(&sandbox.to_string_lossy(), "UNIQUE_KEYWORD", "content", None).unwrap();
+        let res = mgr
+            .search(
+                &sandbox.to_string_lossy(),
+                "UNIQUE_KEYWORD",
+                "content",
+                None,
+            )
+            .unwrap();
         assert_eq!(res.results.len(), 1);
         assert_eq!(res.results[0].name, "README.md");
         assert_eq!(res.results[0].line_number, Some(2));
-        assert!(res.results[0].line_content.as_ref().unwrap().contains("UNIQUE_KEYWORD_ORBIT"));
+        assert!(res.results[0]
+            .line_content
+            .as_ref()
+            .unwrap()
+            .contains("UNIQUE_KEYWORD_ORBIT"));
 
         cleanup_test_sandbox(sandbox);
     }
@@ -347,7 +465,9 @@ mod tests {
         fs::write(build_dir.join("output.txt"), "secret_in_build").unwrap();
         fs::write(valid_dir.join("lib.rs"), "pub fn secret_in_src() {}").unwrap();
 
-        let res = mgr.search(&sandbox.to_string_lossy(), "secret_in", "content", None).unwrap();
+        let res = mgr
+            .search(&sandbox.to_string_lossy(), "secret_in", "content", None)
+            .unwrap();
         assert_eq!(res.results.len(), 1);
         assert_eq!(res.results[0].name, "lib.rs");
 
@@ -368,7 +488,9 @@ mod tests {
 
         fs::write(&text_file, "findme_in_text").unwrap();
 
-        let res = mgr.search(&sandbox.to_string_lossy(), "findme", "content", None).unwrap();
+        let res = mgr
+            .search(&sandbox.to_string_lossy(), "findme", "content", None)
+            .unwrap();
         assert_eq!(res.results.len(), 1);
         assert_eq!(res.results[0].name, "app.txt");
 
@@ -384,7 +506,9 @@ mod tests {
             fs::write(p, "orbit search match").unwrap();
         }
 
-        let res = mgr.search(&sandbox.to_string_lossy(), "orbit", "content", Some(3)).unwrap();
+        let res = mgr
+            .search(&sandbox.to_string_lossy(), "orbit", "content", Some(3))
+            .unwrap();
         assert_eq!(res.results.len(), 3);
         assert!(res.truncated);
 

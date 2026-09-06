@@ -44,12 +44,16 @@ impl ScriptManager {
     pub fn save(&self, input: ScriptInput) -> Result<Script, ProtocolError> {
         let name = input.name.trim();
         if name.is_empty() {
-            return Err(ProtocolError::invalid_params("Script name cannot be empty."));
+            return Err(ProtocolError::invalid_params(
+                "Script name cannot be empty.",
+            ));
         }
 
         let content = input.content.trim();
         if content.is_empty() {
-            return Err(ProtocolError::invalid_params("Script content cannot be empty."));
+            return Err(ProtocolError::invalid_params(
+                "Script content cannot be empty.",
+            ));
         }
 
         // Validate working directory if specified
@@ -86,10 +90,19 @@ impl ScriptManager {
                 Script {
                     id: existing.id,
                     name: name.to_string(),
-                    description: input.description.map(|d| d.trim().to_string()).filter(|d| !d.is_empty()),
+                    description: input
+                        .description
+                        .map(|d| d.trim().to_string())
+                        .filter(|d| !d.is_empty()),
                     content: input.content,
-                    working_directory: input.working_directory.map(|w| w.trim().to_string()).filter(|w| !w.is_empty()),
-                    project_path: input.project_path.map(|p| p.trim().to_string()).filter(|p| !p.is_empty()),
+                    working_directory: input
+                        .working_directory
+                        .map(|w| w.trim().to_string())
+                        .filter(|w| !w.is_empty()),
+                    project_path: input
+                        .project_path
+                        .map(|p| p.trim().to_string())
+                        .filter(|p| !p.is_empty()),
                     created_at: existing.created_at,
                     updated_at: now,
                 }
@@ -97,10 +110,19 @@ impl ScriptManager {
                 Script {
                     id: id.clone(),
                     name: name.to_string(),
-                    description: input.description.map(|d| d.trim().to_string()).filter(|d| !d.is_empty()),
+                    description: input
+                        .description
+                        .map(|d| d.trim().to_string())
+                        .filter(|d| !d.is_empty()),
                     content: input.content,
-                    working_directory: input.working_directory.map(|w| w.trim().to_string()).filter(|w| !w.is_empty()),
-                    project_path: input.project_path.map(|p| p.trim().to_string()).filter(|p| !p.is_empty()),
+                    working_directory: input
+                        .working_directory
+                        .map(|w| w.trim().to_string())
+                        .filter(|w| !w.is_empty()),
+                    project_path: input
+                        .project_path
+                        .map(|p| p.trim().to_string())
+                        .filter(|p| !p.is_empty()),
                     created_at: now,
                     updated_at: now,
                 }
@@ -109,10 +131,19 @@ impl ScriptManager {
             Script {
                 id: Uuid::new_v4().to_string(),
                 name: name.to_string(),
-                description: input.description.map(|d| d.trim().to_string()).filter(|d| !d.is_empty()),
+                description: input
+                    .description
+                    .map(|d| d.trim().to_string())
+                    .filter(|d| !d.is_empty()),
                 content: input.content,
-                working_directory: input.working_directory.map(|w| w.trim().to_string()).filter(|w| !w.is_empty()),
-                project_path: input.project_path.map(|p| p.trim().to_string()).filter(|p| !p.is_empty()),
+                working_directory: input
+                    .working_directory
+                    .map(|w| w.trim().to_string())
+                    .filter(|w| !w.is_empty()),
+                project_path: input
+                    .project_path
+                    .map(|p| p.trim().to_string())
+                    .filter(|p| !p.is_empty()),
                 created_at: now,
                 updated_at: now,
             }

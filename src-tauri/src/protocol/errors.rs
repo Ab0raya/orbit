@@ -46,7 +46,10 @@ impl ProtocolError {
     pub fn message_too_large(size: usize, max: usize) -> Self {
         Self::new(
             "MESSAGE_TOO_LARGE",
-            format!("Message size of {} bytes exceeds limit of {} bytes.", size, max),
+            format!(
+                "Message size of {} bytes exceeds limit of {} bytes.",
+                size, max
+            ),
         )
     }
 
@@ -55,7 +58,10 @@ impl ProtocolError {
     }
 
     pub fn path_not_found(path: impl Into<String>) -> Self {
-        Self::new("PATH_NOT_FOUND", format!("Path '{}' was not found.", path.into()))
+        Self::new(
+            "PATH_NOT_FOUND",
+            format!("Path '{}' was not found.", path.into()),
+        )
     }
 
     pub fn permission_denied(msg: impl Into<String>) -> Self {
@@ -69,7 +75,10 @@ impl ProtocolError {
     pub fn file_too_large(size: u64, max: u64) -> Self {
         Self::new(
             "FILE_TOO_LARGE",
-            format!("File size ({} bytes) exceeds maximum permitted limit ({} bytes).", size, max),
+            format!(
+                "File size ({} bytes) exceeds maximum permitted limit ({} bytes).",
+                size, max
+            ),
         )
     }
 
@@ -78,7 +87,10 @@ impl ProtocolError {
     }
 
     pub fn already_exists(path: impl Into<String>) -> Self {
-        Self::new("ALREADY_EXISTS", format!("Path '{}' already exists.", path.into()))
+        Self::new(
+            "ALREADY_EXISTS",
+            format!("Path '{}' already exists.", path.into()),
+        )
     }
 
     pub fn operation_failed(msg: impl Into<String>) -> Self {
@@ -86,19 +98,34 @@ impl ProtocolError {
     }
 
     pub fn project_not_found(path: impl Into<String>) -> Self {
-        Self::new("PROJECT_NOT_FOUND", format!("Project path '{}' was not found.", path.into()))
+        Self::new(
+            "PROJECT_NOT_FOUND",
+            format!("Project path '{}' was not found.", path.into()),
+        )
     }
 
     pub fn project_not_allowed(path: impl Into<String>) -> Self {
-        Self::new("PROJECT_NOT_ALLOWED", format!("Project path '{}' is outside allowed project roots.", path.into()))
+        Self::new(
+            "PROJECT_NOT_ALLOWED",
+            format!(
+                "Project path '{}' is outside allowed project roots.",
+                path.into()
+            ),
+        )
     }
 
     pub fn not_a_git_repository(path: impl Into<String>) -> Self {
-        Self::new("NOT_A_GIT_REPOSITORY", format!("Directory '{}' is not a Git repository.", path.into()))
+        Self::new(
+            "NOT_A_GIT_REPOSITORY",
+            format!("Directory '{}' is not a Git repository.", path.into()),
+        )
     }
 
     pub fn git_not_installed() -> Self {
-        Self::new("GIT_NOT_INSTALLED", "Git is not installed on the workstation or not in PATH.")
+        Self::new(
+            "GIT_NOT_INSTALLED",
+            "Git is not installed on the workstation or not in PATH.",
+        )
     }
 
     pub fn git_operation_failed(msg: impl Into<String>) -> Self {
@@ -110,11 +137,20 @@ impl ProtocolError {
     }
 
     pub fn invalid_branch_name(name: impl Into<String>) -> Self {
-        Self::new("INVALID_BRANCH_NAME", format!("Branch name '{}' is invalid.", name.into()))
+        Self::new(
+            "INVALID_BRANCH_NAME",
+            format!("Branch name '{}' is invalid.", name.into()),
+        )
     }
 
     pub fn invalid_file_path(path: impl Into<String>) -> Self {
-        Self::new("INVALID_FILE_PATH", format!("File path '{}' is invalid or escapes repository.", path.into()))
+        Self::new(
+            "INVALID_FILE_PATH",
+            format!(
+                "File path '{}' is invalid or escapes repository.",
+                path.into()
+            ),
+        )
     }
 
     pub fn commit_message_empty() -> Self {
@@ -130,6 +166,10 @@ impl ProtocolError {
             "OPENCODE_NOT_FOUND",
             "OpenCode CLI executable was not found on the workstation.",
         )
+    }
+
+    pub fn opencode_not_found_with_msg(msg: impl Into<String>) -> Self {
+        Self::new("OPENCODE_NOT_FOUND", msg)
     }
 
     pub fn ai_task_not_found(task_id: impl Into<String>) -> Self {

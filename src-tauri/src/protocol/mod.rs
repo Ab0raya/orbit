@@ -22,18 +22,24 @@ mod tests {
         assert!(serialized.contains("\"type\":\"request\""));
         assert!(serialized.contains("\"action\":\"ping\""));
 
-        let deserialized: OrbitRequest = serde_json::from_str(&serialized).expect("Failed to deserialize");
+        let deserialized: OrbitRequest =
+            serde_json::from_str(&serialized).expect("Failed to deserialize");
         assert_eq!(req, deserialized);
     }
 
     #[test]
     fn test_valid_response_serialization() {
-        let res = OrbitResponse::success("req_001", "ping", serde_json::json!({"timestamp": 1234567890}));
+        let res = OrbitResponse::success(
+            "req_001",
+            "ping",
+            serde_json::json!({"timestamp": 1234567890}),
+        );
         let serialized = serde_json::to_string(&res).expect("Failed to serialize");
         assert!(serialized.contains("\"success\":true"));
         assert!(serialized.contains("\"type\":\"response\""));
 
-        let deserialized: OrbitResponse = serde_json::from_str(&serialized).expect("Failed to deserialize");
+        let deserialized: OrbitResponse =
+            serde_json::from_str(&serialized).expect("Failed to deserialize");
         assert_eq!(res, deserialized);
     }
 
@@ -45,7 +51,8 @@ mod tests {
         assert!(serialized.contains("\"success\":false"));
         assert!(serialized.contains("INVALID_PAIRING_CODE"));
 
-        let deserialized: OrbitResponse = serde_json::from_str(&serialized).expect("Failed to deserialize");
+        let deserialized: OrbitResponse =
+            serde_json::from_str(&serialized).expect("Failed to deserialize");
         assert_eq!(res, deserialized);
     }
 
@@ -56,7 +63,8 @@ mod tests {
         assert!(serialized.contains("\"event\":\"device.paired\""));
         assert!(serialized.contains("\"type\":\"event\""));
 
-        let deserialized: OrbitEvent = serde_json::from_str(&serialized).expect("Failed to deserialize");
+        let deserialized: OrbitEvent =
+            serde_json::from_str(&serialized).expect("Failed to deserialize");
         assert_eq!(ev, deserialized);
     }
 

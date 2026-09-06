@@ -1,7 +1,7 @@
-use serde::{Deserialize, Serialize};
 use super::events::OrbitEvent;
 use super::request::OrbitRequest;
 use super::response::OrbitResponse;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(untagged)]

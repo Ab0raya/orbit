@@ -25,7 +25,9 @@ fn mask_bearer_tokens(text: &str) -> String {
         out.push_str(&rest[..pos + "bearer ".len()]);
         let token_start = pos + "bearer ".len();
         let token_len = rest[token_start..]
-            .find(|c: char| c.is_whitespace() || c == '"' || c == '\'' || c == ',' || c == '}' || c == ']')
+            .find(|c: char| {
+                c.is_whitespace() || c == '"' || c == '\'' || c == ',' || c == '}' || c == ']'
+            })
             .unwrap_or(rest[token_start..].len());
         if token_len >= 4 {
             out.push_str("••••");
@@ -89,7 +91,11 @@ pub struct ParsedActivityInfo {
 }
 
 impl ParsedActivityInfo {
-    pub fn new(activity_type: AiActivityType, status: AiActivityStatus, title: impl Into<String>) -> Self {
+    pub fn new(
+        activity_type: AiActivityType,
+        status: AiActivityStatus,
+        title: impl Into<String>,
+    ) -> Self {
         Self {
             activity_type,
             status,
@@ -521,20 +527,16 @@ impl OpenCodeEventParser {
                     ParsedOpenCodeItem::Ignored
                 }
             }
-            "step-start" | "step_start" => {
-                ParsedOpenCodeItem::Activity(ParsedActivityInfo::new(
-                    AiActivityType::Thinking,
-                    AiActivityStatus::Running,
-                    "Executing task step...",
-                ))
-            }
-            "step-finish" | "step_finish" => {
-                ParsedOpenCodeItem::Activity(ParsedActivityInfo::new(
-                    AiActivityType::Completed,
-                    AiActivityStatus::Completed,
-                    "Task step completed",
-                ))
-            }
+            "step-start" | "step_start" => ParsedOpenCodeItem::Activity(ParsedActivityInfo::new(
+                AiActivityType::Thinking,
+                AiActivityStatus::Running,
+                "Executing task step...",
+            )),
+            "step-finish" | "step_finish" => ParsedOpenCodeItem::Activity(ParsedActivityInfo::new(
+                AiActivityType::Completed,
+                AiActivityStatus::Completed,
+                "Task step completed",
+            )),
             _ => ParsedOpenCodeItem::Ignored,
         }
     }
@@ -548,7 +550,8 @@ mod tests {
     fn test_extract_upstream_error_apierror_shape() {
         let line = r#"{"type":"error","timestamp":1788626855113,"sessionID":"ses_abc","error":{"name":"APIError","data":{"message":"User not found.","statusCode":401}}}"#;
         let json: Value = serde_json::from_str(line).unwrap();
-        let (msg, code) = OpenCodeEventParser::extract_upstream_error(&json).expect("should extract");
+        let (msg, code) =
+            OpenCodeEventParser::extract_upstream_error(&json).expect("should extract");
         assert_eq!(msg, "User not found.");
         assert_eq!(code, Some(401));
     }
@@ -557,7 +560,8 @@ mod tests {
     fn test_extract_upstream_error_unknown_shape() {
         let line = r#"{"type":"error","error":{"name":"UnknownError","data":{"message":"Unexpected server error.","ref":"err_1"}}}"#;
         let json: Value = serde_json::from_str(line).unwrap();
-        let (msg, code) = OpenCodeEventParser::extract_upstream_error(&json).expect("should extract");
+        let (msg, code) =
+            OpenCodeEventParser::extract_upstream_error(&json).expect("should extract");
         assert_eq!(msg, "Unexpected server error.");
         assert_eq!(code, None);
     }
@@ -573,7 +577,10 @@ mod tests {
     fn test_parse_line_routes_error_event() {
         let line = r#"{"type":"error","error":{"name":"APIError","data":{"message":"Rate limited.","statusCode":429}}}"#;
         match OpenCodeEventParser::parse_line(line) {
-            ParsedOpenCodeItem::UpstreamError { message, status_code } => {
+            ParsedOpenCodeItem::UpstreamError {
+                message,
+                status_code,
+            } => {
                 assert_eq!(message, "Rate limited.");
                 assert_eq!(status_code, Some(429));
             }
@@ -584,8 +591,16 @@ mod tests {
     #[test]
     fn test_redact_secrets_masks_tokens() {
         let red = redact_secrets("key=sk-or-v1-abcdef1234567890 and Bearer secret-token-xyz ok");
-        assert!(!red.contains("abcdef1234567890"), "sk token leaked: {}", red);
-        assert!(!red.contains("secret-token-xyz"), "bearer token leaked: {}", red);
+        assert!(
+            !red.contains("abcdef1234567890"),
+            "sk token leaked: {}",
+            red
+        );
+        assert!(
+            !red.contains("secret-token-xyz"),
+            "bearer token leaked: {}",
+            red
+        );
         assert!(red.contains("sk-••••"), "sk mask missing: {}", red);
         assert!(red.contains("••••"), "bearer mask missing: {}", red);
     }

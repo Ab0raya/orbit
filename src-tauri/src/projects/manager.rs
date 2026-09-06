@@ -133,7 +133,11 @@ impl ProjectManager {
         Ok(ProjectInfo {
             name,
             path: path.to_string_lossy().to_string(),
-            kind: if is_git { "git".to_string() } else { "directory".to_string() },
+            kind: if is_git {
+                "git".to_string()
+            } else {
+                "directory".to_string()
+            },
             project_type,
             git: git_status,
         })
@@ -183,7 +187,11 @@ impl ProjectManager {
         Ok(GitManager::unstage(&path, paths)?)
     }
 
-    pub fn git_commit(&self, raw_path: &str, message: &str) -> Result<GitCommitResult, ProjectError> {
+    pub fn git_commit(
+        &self,
+        raw_path: &str,
+        message: &str,
+    ) -> Result<GitCommitResult, ProjectError> {
         let path = self.get_git_repo(raw_path)?;
         Ok(GitManager::commit(&path, message)?)
     }

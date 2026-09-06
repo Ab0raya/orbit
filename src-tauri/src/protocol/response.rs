@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use super::errors::ProtocolError;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct OrbitResponse {
@@ -15,7 +15,11 @@ pub struct OrbitResponse {
 }
 
 impl OrbitResponse {
-    pub fn success(id: impl Into<String>, action: impl Into<String>, payload: serde_json::Value) -> Self {
+    pub fn success(
+        id: impl Into<String>,
+        action: impl Into<String>,
+        payload: serde_json::Value,
+    ) -> Self {
         Self {
             id: id.into(),
             msg_type: "response".to_string(),

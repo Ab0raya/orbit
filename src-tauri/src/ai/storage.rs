@@ -1,7 +1,7 @@
-use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
 use uuid::Uuid;
 
 use crate::ai::models::AiActivity;
@@ -99,8 +99,9 @@ pub struct AiConversationStore {
 
 impl AiConversationStore {
     pub fn new_in_memory() -> Result<Self, ProtocolError> {
-        let conn = Connection::open_in_memory()
-            .map_err(|e| ProtocolError::internal_error(format!("Failed to open in-memory SQLite: {}", e)))?;
+        let conn = Connection::open_in_memory().map_err(|e| {
+            ProtocolError::internal_error(format!("Failed to open in-memory SQLite: {}", e))
+        })?;
         let store = Self {
             conn: Arc::new(Mutex::new(conn)),
             db_path: None,
@@ -113,8 +114,12 @@ impl AiConversationStore {
         if let Some(parent) = path.parent() {
             let _ = std::fs::create_dir_all(parent);
         }
-        let conn = Connection::open(path)
-            .map_err(|e| ProtocolError::internal_error(format!("Failed to open SQLite database at {:?}: {}", path, e)))?;
+        let conn = Connection::open(path).map_err(|e| {
+            ProtocolError::internal_error(format!(
+                "Failed to open SQLite database at {:?}: {}",
+                path, e
+            ))
+        })?;
         let store = Self {
             conn: Arc::new(Mutex::new(conn)),
             db_path: Some(path.to_path_buf()),
@@ -265,7 +270,9 @@ impl AiConversationStore {
                 model_id,
             ],
         )
-        .map_err(|e| ProtocolError::internal_error(format!("Failed to create conversation: {}", e)))?;
+        .map_err(|e| {
+            ProtocolError::internal_error(format!("Failed to create conversation: {}", e))
+        })?;
 
         Ok(AiConversationSummary {
             id,
@@ -284,7 +291,11 @@ impl AiConversationStore {
         })
     }
 
-    pub fn list_conversations(&self, limit: usize, offset: usize) -> Result<Vec<AiConversationSummary>, ProtocolError> {
+    pub fn list_conversations(
+        &self,
+        limit: usize,
+        offset: usize,
+    ) -> Result<Vec<AiConversationSummary>, ProtocolError> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn
             .prepare(
@@ -297,7 +308,9 @@ impl AiConversationStore {
                 LIMIT ?1 OFFSET ?2
                 "#,
             )
-            .map_err(|e| ProtocolError::internal_error(format!("Failed to prepare list query: {}", e)))?;
+            .map_err(|e| {
+                ProtocolError::internal_error(format!("Failed to prepare list query: {}", e))
+            })?;
 
         let rows = stmt
             .query_map(params![limit as i64, offset as i64], |row| {
@@ -317,7 +330,9 @@ impl AiConversationStore {
                     message_count: row.get::<_, i64>(12)? as usize,
                 })
             })
-            .map_err(|e| ProtocolError::internal_error(format!("Failed to execute list query: {}", e)))?;
+            .map_err(|e| {
+                ProtocolError::internal_error(format!("Failed to execute list query: {}", e))
+            })?;
 
         let mut result = Vec::new();
         for conv in rows.flatten() {
@@ -327,7 +342,10 @@ impl AiConversationStore {
         Ok(result)
     }
 
-    pub fn get_conversation(&self, id: &str) -> Result<Option<AiConversationDetail>, ProtocolError> {
+    pub fn get_conversation(
+        &self,
+        id: &str,
+    ) -> Result<Option<AiConversationDetail>, ProtocolError> {
         let conn = self.conn.lock().unwrap();
         let mut conv_stmt = conn
             .prepare(
@@ -339,7 +357,9 @@ impl AiConversationStore {
                 WHERE id = ?1
                 "#,
             )
-            .map_err(|e| ProtocolError::internal_error(format!("Failed to prepare get query: {}", e)))?;
+            .map_err(|e| {
+                ProtocolError::internal_error(format!("Failed to prepare get query: {}", e))
+            })?;
 
         let summary: Option<AiConversationSummary> = conv_stmt
             .query_row(params![id], |row| {
@@ -360,7 +380,9 @@ impl AiConversationStore {
                 })
             })
             .optional()
-            .map_err(|e| ProtocolError::internal_error(format!("Failed to query conversation: {}", e)))?;
+            .map_err(|e| {
+                ProtocolError::internal_error(format!("Failed to query conversation: {}", e))
+            })?;
 
         let s = match summary {
             Some(s) => s,
@@ -377,7 +399,9 @@ impl AiConversationStore {
                 ORDER BY created_at ASC
                 "#,
             )
-            .map_err(|e| ProtocolError::internal_error(format!("Failed to prepare message query: {}", e)))?;
+            .map_err(|e| {
+                ProtocolError::internal_error(format!("Failed to prepare message query: {}", e))
+            })?;
 
         let msg_rows = msg_stmt
             .query_map(params![id], |row| {
@@ -401,7 +425,9 @@ impl AiConversationStore {
                     error: row.get(10)?,
                 })
             })
-            .map_err(|e| ProtocolError::internal_error(format!("Failed to execute message query: {}", e)))?;
+            .map_err(|e| {
+                ProtocolError::internal_error(format!("Failed to execute message query: {}", e))
+            })?;
 
         let mut messages = Vec::new();
         for msg in msg_rows.flatten() {
@@ -448,7 +474,12 @@ impl AiConversationStore {
         Ok(())
     }
 
-    pub fn update_model(&self, id: &str, provider_id: Option<&str>, model_id: Option<&str>) -> Result<(), ProtocolError> {
+    pub fn update_model(
+        &self,
+        id: &str,
+        provider_id: Option<&str>,
+        model_id: Option<&str>,
+    ) -> Result<(), ProtocolError> {
         let conn = self.conn.lock().unwrap();
         let now = chrono::Utc::now().timestamp();
         conn.execute(
@@ -466,11 +497,16 @@ impl AiConversationStore {
             "UPDATE conversations SET open_code_session_id = ?1, updated_at = ?2 WHERE id = ?3",
             params![session_id, now, id],
         )
-        .map_err(|e| ProtocolError::internal_error(format!("Failed to update session mapping: {}", e)))?;
+        .map_err(|e| {
+            ProtocolError::internal_error(format!("Failed to update session mapping: {}", e))
+        })?;
         Ok(())
     }
 
-    pub fn get_conversation_by_session_id(&self, session_id: &str) -> Result<Option<AiConversationSummary>, ProtocolError> {
+    pub fn get_conversation_by_session_id(
+        &self,
+        session_id: &str,
+    ) -> Result<Option<AiConversationSummary>, ProtocolError> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn
             .prepare(
@@ -483,7 +519,12 @@ impl AiConversationStore {
                 LIMIT 1
                 "#,
             )
-            .map_err(|e| ProtocolError::internal_error(format!("Failed to prepare query by session ID: {}", e)))?;
+            .map_err(|e| {
+                ProtocolError::internal_error(format!(
+                    "Failed to prepare query by session ID: {}",
+                    e
+                ))
+            })?;
 
         let res = stmt
             .query_row(params![session_id], |row| {
@@ -504,17 +545,27 @@ impl AiConversationStore {
                 })
             })
             .optional()
-            .map_err(|e| ProtocolError::internal_error(format!("Failed to query conversation by session: {}", e)))?;
+            .map_err(|e| {
+                ProtocolError::internal_error(format!(
+                    "Failed to query conversation by session: {}",
+                    e
+                ))
+            })?;
 
         Ok(res)
     }
 
     pub fn delete_conversation(&self, id: &str) -> Result<(), ProtocolError> {
         let conn = self.conn.lock().unwrap();
-        conn.execute("DELETE FROM messages WHERE conversation_id = ?1", params![id])
-            .map_err(|e| ProtocolError::internal_error(format!("Failed to delete messages: {}", e)))?;
+        conn.execute(
+            "DELETE FROM messages WHERE conversation_id = ?1",
+            params![id],
+        )
+        .map_err(|e| ProtocolError::internal_error(format!("Failed to delete messages: {}", e)))?;
         conn.execute("DELETE FROM conversations WHERE id = ?1", params![id])
-            .map_err(|e| ProtocolError::internal_error(format!("Failed to delete conversation: {}", e)))?;
+            .map_err(|e| {
+                ProtocolError::internal_error(format!("Failed to delete conversation: {}", e))
+            })?;
         Ok(())
     }
 
@@ -563,7 +614,9 @@ impl AiConversationStore {
             "#,
             params![preview, msg.conversation_id, now],
         )
-        .map_err(|e| ProtocolError::internal_error(format!("Failed to update conversation preview: {}", e)))?;
+        .map_err(|e| {
+            ProtocolError::internal_error(format!("Failed to update conversation preview: {}", e))
+        })?;
 
         Ok(())
     }
@@ -596,7 +649,11 @@ impl AiConversationStore {
         Ok(())
     }
 
-    pub fn search_conversations(&self, query: &str, limit: usize) -> Result<Vec<AiConversationSearchResult>, ProtocolError> {
+    pub fn search_conversations(
+        &self,
+        query: &str,
+        limit: usize,
+    ) -> Result<Vec<AiConversationSearchResult>, ProtocolError> {
         let q = query.trim();
         if q.is_empty() {
             return Ok(Vec::new());
@@ -618,7 +675,9 @@ impl AiConversationStore {
                     LIMIT ?2
                     "#,
                 )
-                .map_err(|e| ProtocolError::internal_error(format!("Search title failed: {}", e)))?;
+                .map_err(|e| {
+                    ProtocolError::internal_error(format!("Search title failed: {}", e))
+                })?;
 
             let rows = stmt
                 .query_map(params![sql_like, limit as i64], |row| {
@@ -630,7 +689,12 @@ impl AiConversationStore {
 
                     let field = if title.to_lowercase().contains(&q.to_lowercase()) {
                         "title"
-                    } else if project_path.as_deref().unwrap_or("").to_lowercase().contains(&q.to_lowercase()) {
+                    } else if project_path
+                        .as_deref()
+                        .unwrap_or("")
+                        .to_lowercase()
+                        .contains(&q.to_lowercase())
+                    {
                         "project"
                     } else {
                         "model"
@@ -679,7 +743,8 @@ impl AiConversationStore {
                     let model_id: Option<String> = row.get(5)?;
 
                     // Generate a snippet around match
-                    let snippet = if let Some(idx) = content.to_lowercase().find(&q.to_lowercase()) {
+                    let snippet = if let Some(idx) = content.to_lowercase().find(&q.to_lowercase())
+                    {
                         let start = idx.saturating_sub(20);
                         let end = (idx + q.len() + 30).min(content.len());
                         format!("...{}...", &content[start..end])
@@ -700,7 +765,10 @@ impl AiConversationStore {
                 .map_err(|e| ProtocolError::internal_error(format!("Query failed: {}", e)))?;
 
             for r in rows.flatten() {
-                if !results.iter().any(|existing| existing.conversation_id == r.conversation_id) {
+                if !results
+                    .iter()
+                    .any(|existing| existing.conversation_id == r.conversation_id)
+                {
                     results.push(r);
                 }
             }
@@ -725,7 +793,9 @@ impl AiConversationStore {
                 })
             })
             .optional()
-            .map_err(|e| ProtocolError::internal_error(format!("Failed to query defaults: {}", e)))?;
+            .map_err(|e| {
+                ProtocolError::internal_error(format!("Failed to query defaults: {}", e))
+            })?;
 
         Ok(res.unwrap_or_default())
     }
@@ -791,7 +861,10 @@ impl AiConversationStore {
                         "failed" => "✗",
                         _ => "●",
                     };
-                    let duration = act.duration_ms.map(|d| format!(" ({}ms)", d)).unwrap_or_default();
+                    let duration = act
+                        .duration_ms
+                        .map(|d| format!(" ({}ms)", d))
+                        .unwrap_or_default();
                     md.push_str(&format!("- {} {}{}\n", icon, act.title, duration));
                 }
                 md.push_str("\n</details>\n\n");
@@ -807,8 +880,9 @@ impl AiConversationStore {
             None => return Err(ProtocolError::internal_error("Conversation not found")),
         };
 
-        serde_json::to_string_pretty(&detail)
-            .map_err(|e| ProtocolError::internal_error(format!("Failed to serialize conversation JSON: {}", e)))
+        serde_json::to_string_pretty(&detail).map_err(|e| {
+            ProtocolError::internal_error(format!("Failed to serialize conversation JSON: {}", e))
+        })
     }
 }
 
@@ -819,8 +893,14 @@ mod tests {
 
     #[test]
     fn test_generate_safe_title() {
-        assert_eq!(AiConversationStore::generate_safe_title("explain README architecture"), "Explain README architecture");
-        assert_eq!(AiConversationStore::generate_safe_title("### Fix terminal cursor issue"), "Fix terminal cursor issue");
+        assert_eq!(
+            AiConversationStore::generate_safe_title("explain README architecture"),
+            "Explain README architecture"
+        );
+        assert_eq!(
+            AiConversationStore::generate_safe_title("### Fix terminal cursor issue"),
+            "Fix terminal cursor issue"
+        );
         let long_prompt = "This is an extremely long user prompt that exceeds the forty-eight character limit easily";
         let safe = AiConversationStore::generate_safe_title(long_prompt);
         assert!(safe.ends_with("..."));
@@ -830,14 +910,16 @@ mod tests {
     #[test]
     fn test_conversation_crud() {
         let store = AiConversationStore::new_in_memory().expect("in-memory db");
-        let conv = store.create_conversation(
-            Some("Initial Title"),
-            Some("/path/to/project"),
-            None,
-            Some("project"),
-            Some("openrouter"),
-            Some("openrouter/openrouter/free"),
-        ).expect("created");
+        let conv = store
+            .create_conversation(
+                Some("Initial Title"),
+                Some("/path/to/project"),
+                None,
+                Some("project"),
+                Some("openrouter"),
+                Some("openrouter/openrouter/free"),
+            )
+            .expect("created");
 
         assert_eq!(conv.title, "Initial Title");
         assert_eq!(conv.project_path.as_deref(), Some("/path/to/project"));
@@ -846,8 +928,13 @@ mod tests {
         assert_eq!(list.len(), 1);
         assert_eq!(list[0].id, conv.id);
 
-        store.update_title(&conv.id, "Renamed Title").expect("rename");
-        let detail = store.get_conversation(&conv.id).expect("get").expect("found");
+        store
+            .update_title(&conv.id, "Renamed Title")
+            .expect("rename");
+        let detail = store
+            .get_conversation(&conv.id)
+            .expect("get")
+            .expect("found");
         assert_eq!(detail.title, "Renamed Title");
 
         store.delete_conversation(&conv.id).expect("delete");
@@ -858,7 +945,9 @@ mod tests {
     #[test]
     fn test_message_and_activity_persistence() {
         let store = AiConversationStore::new_in_memory().expect("in-memory db");
-        let conv = store.create_conversation(Some("Chat"), None, None, None, None, None).expect("create");
+        let conv = store
+            .create_conversation(Some("Chat"), None, None, None, None, None)
+            .expect("create");
 
         let user_msg = AiConversationMessage {
             id: "msg_user_1".to_string(),
@@ -905,11 +994,17 @@ mod tests {
         };
         store.add_message(&asst_msg).expect("add asst msg");
 
-        let detail = store.get_conversation(&conv.id).expect("get").expect("found");
+        let detail = store
+            .get_conversation(&conv.id)
+            .expect("get")
+            .expect("found");
         assert_eq!(detail.message_count, 2);
         assert_eq!(detail.messages.len(), 2);
         assert_eq!(detail.messages[1].activities.len(), 1);
-        assert_eq!(detail.messages[1].activities[0].title, "Reading TerminalEmulator.tsx");
+        assert_eq!(
+            detail.messages[1].activities[0].title,
+            "Reading TerminalEmulator.tsx"
+        );
 
         // Export markdown
         let md = store.export_markdown(&conv.id).expect("export markdown");
@@ -925,7 +1020,16 @@ mod tests {
     #[test]
     fn test_search_conversations() {
         let store = AiConversationStore::new_in_memory().expect("in-memory db");
-        let conv = store.create_conversation(Some("Architecture overview"), Some("/home/orbit"), None, None, None, None).expect("create");
+        let conv = store
+            .create_conversation(
+                Some("Architecture overview"),
+                Some("/home/orbit"),
+                None,
+                None,
+                None,
+                None,
+            )
+            .expect("create");
 
         let msg = AiConversationMessage {
             id: "msg_1".to_string(),
@@ -942,7 +1046,9 @@ mod tests {
         };
         store.add_message(&msg).expect("add msg");
 
-        let res_title = store.search_conversations("Architecture", 10).expect("search");
+        let res_title = store
+            .search_conversations("Architecture", 10)
+            .expect("search");
         assert_eq!(res_title.len(), 1);
         assert_eq!(res_title[0].conversation_id, conv.id);
 
@@ -955,10 +1061,17 @@ mod tests {
     #[test]
     fn test_session_mapping_resumption() {
         let store = AiConversationStore::new_in_memory().expect("in-memory db");
-        let conv = store.create_conversation(Some("Session test"), None, None, None, None, None).expect("create");
-        store.update_session_mapping(&conv.id, "ses_test123").expect("update session");
+        let conv = store
+            .create_conversation(Some("Session test"), None, None, None, None, None)
+            .expect("create");
+        store
+            .update_session_mapping(&conv.id, "ses_test123")
+            .expect("update session");
 
-        let found = store.get_conversation_by_session_id("ses_test123").expect("query").expect("found");
+        let found = store
+            .get_conversation_by_session_id("ses_test123")
+            .expect("query")
+            .expect("found");
         assert_eq!(found.id, conv.id);
     }
 }

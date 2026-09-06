@@ -21,8 +21,8 @@ pub use storage::AiConversationStore;
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::models::{AiActivity, AiActivityStatus, AiActivityType};
+    use super::*;
     use crate::projects::ProjectManager;
     use std::path::PathBuf;
     use std::sync::Arc;
@@ -200,8 +200,14 @@ mod tests {
     // Test 8: Malformed JSON and non-JSON lines tolerance
     #[test]
     fn test_opencode_event_parser_malformed_tolerance() {
-        assert_eq!(OpenCodeEventParser::parse_line(""), ParsedOpenCodeItem::Ignored);
-        assert_eq!(OpenCodeEventParser::parse_line("   "), ParsedOpenCodeItem::Ignored);
+        assert_eq!(
+            OpenCodeEventParser::parse_line(""),
+            ParsedOpenCodeItem::Ignored
+        );
+        assert_eq!(
+            OpenCodeEventParser::parse_line("   "),
+            ParsedOpenCodeItem::Ignored
+        );
         assert_eq!(
             OpenCodeEventParser::parse_line("OpenCode v1.18.27 starting..."),
             ParsedOpenCodeItem::Ignored
@@ -222,7 +228,9 @@ mod tests {
         let project_mgr = Arc::new(ProjectManager::new());
         let ai_mgr = AiTaskManager::new(project_mgr);
 
-        let res = ai_mgr.start_task("dev_1", "/any/path", "   ", None, None).await;
+        let res = ai_mgr
+            .start_task("dev_1", "/any/path", "   ", None, None)
+            .await;
         assert!(res.is_err());
         assert_eq!(res.unwrap_err().code, "AI_TASK_INVALID_PROMPT");
     }
@@ -233,7 +241,15 @@ mod tests {
         let project_mgr = Arc::new(ProjectManager::new());
         let ai_mgr = AiTaskManager::new(project_mgr);
 
-        let res = ai_mgr.start_task("dev_1", "/any/path", "Valid prompt", Some("invalid_agent"), None).await;
+        let res = ai_mgr
+            .start_task(
+                "dev_1",
+                "/any/path",
+                "Valid prompt",
+                Some("invalid_agent"),
+                None,
+            )
+            .await;
         assert!(res.is_err());
         assert_eq!(res.unwrap_err().code, "AI_TASK_INVALID_AGENT");
     }
@@ -245,7 +261,9 @@ mod tests {
         let ai_mgr = AiTaskManager::new(project_mgr);
 
         // Path outside allowed project roots
-        let res = ai_mgr.start_task("dev_1", "/etc/shadow", "Analyze system", None, None).await;
+        let res = ai_mgr
+            .start_task("dev_1", "/etc/shadow", "Analyze system", None, None)
+            .await;
         assert!(res.is_err());
         let err = res.unwrap_err();
         assert!(err.code == "PROJECT_NOT_ALLOWED" || err.code == "PROJECT_NOT_FOUND");
@@ -325,9 +343,7 @@ mod tests {
         let res = OpenCodeEventParser::parse_line_with_project(line, Some(&project_root));
         match res {
             ParsedOpenCodeItem::ToolStarted {
-                tool,
-                file_path,
-                ..
+                tool, file_path, ..
             } => {
                 assert_eq!(tool, "read");
                 assert_eq!(file_path, Some("mobile/lib/main.dart".to_string()));
@@ -451,19 +467,27 @@ mod tests {
         let ai_mgr = AiTaskManager::new(project_mgr);
 
         // Directly verify get_task fails with AI_TASK_NOT_FOUND for unknown tasks
-        let err = ai_mgr.get_task("nonexistent_task", "dev_1").await.unwrap_err();
+        let err = ai_mgr
+            .get_task("nonexistent_task", "dev_1")
+            .await
+            .unwrap_err();
         assert_eq!(err.code, "AI_TASK_NOT_FOUND");
     }
 
     // Test 19: AI arbitrary allowed directory validation
     #[test]
     fn test_ai_arbitrary_allowed_directory_validation() {
-        let temp_dir = std::env::temp_dir().join(format!("orbit_ai_allowed_{}", std::process::id()));
+        let temp_dir =
+            std::env::temp_dir().join(format!("orbit_ai_allowed_{}", std::process::id()));
         let _ = std::fs::create_dir_all(&temp_dir);
         let project_mgr = ProjectManager::with_roots(vec![std::env::temp_dir()]);
 
         let res = validate_ai_working_directory(&temp_dir.to_string_lossy(), &project_mgr);
-        assert!(res.is_ok(), "Expected valid directory within allowed roots: {:?}", res);
+        assert!(
+            res.is_ok(),
+            "Expected valid directory within allowed roots: {:?}",
+            res
+        );
         match res.unwrap() {
             ValidatedAiContext::Directory(p) => {
                 assert!(p.exists());
@@ -506,7 +530,11 @@ mod tests {
 
         let project_mgr = ProjectManager::with_roots(vec![std::env::temp_dir()]);
         let res = validate_ai_working_directory(&temp_dir.to_string_lossy(), &project_mgr);
-        assert!(res.is_ok(), "Non-git directory within allowed roots must be accepted: {:?}", res);
+        assert!(
+            res.is_ok(),
+            "Non-git directory within allowed roots must be accepted: {:?}",
+            res
+        );
 
         let _ = std::fs::remove_dir_all(&temp_dir);
     }
@@ -518,7 +546,11 @@ mod tests {
         let project_mgr = ProjectManager::new();
 
         let res = validate_ai_working_directory(&cwd.to_string_lossy(), &project_mgr);
-        assert!(res.is_ok(), "Current workspace project must be accepted: {:?}", res);
+        assert!(
+            res.is_ok(),
+            "Current workspace project must be accepted: {:?}",
+            res
+        );
     }
 
     // Test 23: No-context validation
@@ -564,7 +596,10 @@ mod tests {
         task.append_response("Orbit is a remote ");
         task.append_response("AI command center.");
 
-        assert_eq!(task.response.as_deref(), Some("Orbit is a remote AI command center."));
+        assert_eq!(
+            task.response.as_deref(),
+            Some("Orbit is a remote AI command center.")
+        );
 
         // Bounded response buffer test
         let large_chunk = "R".repeat(1024);
@@ -596,7 +631,10 @@ mod tests {
                 assert!(!info.title.contains("think about how to answer"));
                 assert_eq!(info.title, "Analyzing project & architecture...");
             }
-            other => panic!("Reasoning must be mapped to safe thinking activity, got: {:?}", other),
+            other => panic!(
+                "Reasoning must be mapped to safe thinking activity, got: {:?}",
+                other
+            ),
         }
     }
 
@@ -647,7 +685,11 @@ mod tests {
 
         let res = OpenCodeEventParser::parse_line(line);
         match res {
-            ParsedOpenCodeItem::PermissionReplied { id, session_id, reply } => {
+            ParsedOpenCodeItem::PermissionReplied {
+                id,
+                session_id,
+                reply,
+            } => {
                 assert_eq!(id, "per_12345");
                 assert_eq!(session_id.as_deref(), Some("ses_abc123"));
                 assert_eq!(reply, "once");
@@ -785,7 +827,10 @@ mod tests {
         let res = pm
             .resolve_request("device_a", "perm_destruct", AiPermissionDecision::Always)
             .await;
-        assert!(res.is_err(), "Always Allow must be forbidden for destructive actions");
+        assert!(
+            res.is_err(),
+            "Always Allow must be forbidden for destructive actions"
+        );
 
         // Allow once must succeed
         let allow_once = pm

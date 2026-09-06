@@ -10,6 +10,7 @@ import {
   AiProviderSummary,
   AiTaskSummary,
   AiUsageStats,
+  OpencodeStatusPayload,
 } from "../types/ai";
 
 export const isTauriEnvironment = (): boolean => {
@@ -656,4 +657,41 @@ export const aiService = {
       }
     };
   },
+
+  async getOpencodeStatus(): Promise<OpencodeStatusPayload> {
+    if (!isTauriEnvironment()) {
+      return {
+        state: "ready",
+        userMessage: "AI engine ready.",
+        isReady: true,
+        version: "1.18.29",
+      };
+    }
+    return invoke<OpencodeStatusPayload>("get_opencode_status");
+  },
+
+  async installOpencode(): Promise<OpencodeStatusPayload> {
+    if (!isTauriEnvironment()) {
+      return {
+        state: "ready",
+        userMessage: "AI engine ready.",
+        isReady: true,
+        version: "1.18.29",
+      };
+    }
+    return invoke<OpencodeStatusPayload>("install_opencode");
+  },
+
+  async updateOpencode(): Promise<OpencodeStatusPayload> {
+    if (!isTauriEnvironment()) {
+      return {
+        state: "ready",
+        userMessage: "AI engine ready.",
+        isReady: true,
+        version: "1.18.29",
+      };
+    }
+    return invoke<OpencodeStatusPayload>("update_opencode");
+  },
 };
+

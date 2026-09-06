@@ -91,18 +91,15 @@ impl TerminalManager {
         owner_device_id: &str,
     ) -> Result<Arc<TerminalSession>, ProtocolError> {
         let session = {
-            let map = self
-                .sessions
-                .read()
-                .map_err(|e| ProtocolError::internal_error(format!("Failed to lock sessions: {}", e)))?;
-            map.get(session_id)
-                .cloned()
-                .ok_or_else(|| {
-                    ProtocolError::new(
-                        "INVALID_SESSION_ID",
-                        format!("Terminal session '{}' not found.", session_id),
-                    )
-                })?
+            let map = self.sessions.read().map_err(|e| {
+                ProtocolError::internal_error(format!("Failed to lock sessions: {}", e))
+            })?;
+            map.get(session_id).cloned().ok_or_else(|| {
+                ProtocolError::new(
+                    "INVALID_SESSION_ID",
+                    format!("Terminal session '{}' not found.", session_id),
+                )
+            })?
         };
 
         if session.owner_device_id != owner_device_id {
@@ -121,9 +118,9 @@ impl TerminalManager {
         data: &str,
     ) -> Result<(), ProtocolError> {
         let session = self.get_session_with_ownership(session_id, owner_device_id)?;
-        session
-            .write_input(data)
-            .map_err(|e| ProtocolError::internal_error(format!("Failed to write to terminal: {}", e)))
+        session.write_input(data).map_err(|e| {
+            ProtocolError::internal_error(format!("Failed to write to terminal: {}", e))
+        })
     }
 
     pub fn resize(
@@ -146,9 +143,9 @@ impl TerminalManager {
         owner_device_id: &str,
     ) -> Result<(), ProtocolError> {
         let session = self.get_session_with_ownership(session_id, owner_device_id)?;
-        session
-            .kill()
-            .map_err(|e| ProtocolError::internal_error(format!("Failed to kill terminal: {}", e)))?;
+        session.kill().map_err(|e| {
+            ProtocolError::internal_error(format!("Failed to kill terminal: {}", e))
+        })?;
 
         // Broadcast exited event
         let _ = self.event_tx.send(TerminalBroadcastEvent::Exited {
@@ -222,7 +219,9 @@ mod tests {
         assert_eq!(session.owner_device_id, "dev_user_1");
 
         // Verify valid owner can access
-        assert!(mgr.get_session_with_ownership(&session.session_id, "dev_user_1").is_ok());
+        assert!(mgr
+            .get_session_with_ownership(&session.session_id, "dev_user_1")
+            .is_ok());
 
         // Verify unauthorized device cannot access
         let err = mgr.get_session_with_ownership(&session.session_id, "dev_intruder");

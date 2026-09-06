@@ -119,7 +119,11 @@ mod tests {
         // Create a non-git Rust project
         let rust_proj = sandbox.root.join("rust_tool");
         fs::create_dir_all(&rust_proj).unwrap();
-        fs::write(rust_proj.join("Cargo.toml"), "[package]\nname = \"rust_tool\"").unwrap();
+        fs::write(
+            rust_proj.join("Cargo.toml"),
+            "[package]\nname = \"rust_tool\"",
+        )
+        .unwrap();
 
         let list = sandbox
             .manager
@@ -148,24 +152,43 @@ mod tests {
         // 1. Nested project inside a category directory (like desktop_projects/my_project)
         let cat_proj = root.join("category_a").join("nested_node_app");
         fs::create_dir_all(&cat_proj).unwrap();
-        fs::write(cat_proj.join("package.json"), "{\"name\": \"nested_node_app\"}").unwrap();
+        fs::write(
+            cat_proj.join("package.json"),
+            "{\"name\": \"nested_node_app\"}",
+        )
+        .unwrap();
 
         // 2. Deeper nested project (depth 3)
-        let deep_proj = root.join("category_b").join("sub_category").join("deep_rust_app");
+        let deep_proj = root
+            .join("category_b")
+            .join("sub_category")
+            .join("deep_rust_app");
         fs::create_dir_all(&deep_proj).unwrap();
-        fs::write(deep_proj.join("Cargo.toml"), "[package]\nname = \"deep_rust_app\"").unwrap();
+        fs::write(
+            deep_proj.join("Cargo.toml"),
+            "[package]\nname = \"deep_rust_app\"",
+        )
+        .unwrap();
 
         // 3. Ignored directory that has a fake project marker (should NOT be discovered)
         let ignored_node_modules = cat_proj.join("node_modules").join("fake_dependency");
         fs::create_dir_all(&ignored_node_modules).unwrap();
-        fs::write(ignored_node_modules.join("package.json"), "{\"name\": \"fake_dep\"}").unwrap();
+        fs::write(
+            ignored_node_modules.join("package.json"),
+            "{\"name\": \"fake_dep\"}",
+        )
+        .unwrap();
 
         let manager = ProjectManager::with_roots(vec![root.clone()]);
         let list = manager.list(Some(&root.to_string_lossy())).unwrap();
 
         // Should find nested_node_app and deep_rust_app, but NOT fake_dependency
-        assert!(list.iter().any(|p| p.name == "nested_node_app" && p.project_type == "node"));
-        assert!(list.iter().any(|p| p.name == "deep_rust_app" && p.project_type == "rust"));
+        assert!(list
+            .iter()
+            .any(|p| p.name == "nested_node_app" && p.project_type == "node"));
+        assert!(list
+            .iter()
+            .any(|p| p.name == "deep_rust_app" && p.project_type == "rust"));
         assert!(!list.iter().any(|p| p.name == "fake_dependency"));
 
         let _ = fs::remove_dir_all(&root);
@@ -183,7 +206,11 @@ mod tests {
         // Plus a subproject
         let sub_proj = root.join("packages").join("sub_tool");
         fs::create_dir_all(&sub_proj).unwrap();
-        fs::write(sub_proj.join("Cargo.toml"), "[package]\nname = \"sub_tool\"").unwrap();
+        fs::write(
+            sub_proj.join("Cargo.toml"),
+            "[package]\nname = \"sub_tool\"",
+        )
+        .unwrap();
 
         let manager = ProjectManager::with_roots(vec![root.clone()]);
         let list = manager.list(Some(&root.to_string_lossy())).unwrap();
@@ -223,7 +250,8 @@ mod tests {
         if let Some(proj_root) = roots.iter().find(|r| r.name == "Projects") {
             let list = manager.list(Some(&proj_root.path)).unwrap();
             assert!(
-                list.iter().any(|p| p.path.ends_with("desktop_projects/orbit")),
+                list.iter()
+                    .any(|p| p.path.ends_with("desktop_projects/orbit")),
                 "Expected Orbit project under Projects root, got: {:?}",
                 list.iter().map(|p| &p.path).collect::<Vec<_>>()
             );
@@ -310,7 +338,9 @@ mod tests {
         let branches2 = sandbox.manager.git_branches(&proj_path).unwrap();
         assert_eq!(branches2.current, "feature/orbit-mobile");
         assert!(branches2.local.contains(&"main".to_string()));
-        assert!(branches2.local.contains(&"feature/orbit-mobile".to_string()));
+        assert!(branches2
+            .local
+            .contains(&"feature/orbit-mobile".to_string()));
 
         // 3. Checkout main
         let status_main = sandbox.manager.git_checkout(&proj_path, "main").unwrap();

@@ -2,9 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::RwLock;
 
-use super::operations::{
-    self, FileEntry, FileError, DEFAULT_MAX_READ_BYTES,
-};
+use super::operations::{self, FileEntry, FileError, DEFAULT_MAX_READ_BYTES};
 use super::path::{default_browse_roots, is_within_scopes, normalize_path};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -115,7 +113,11 @@ impl FileManager {
         })
     }
 
-    pub fn read_binary(&self, raw_path: &str, max_bytes: Option<u64>) -> Result<operations::BinaryReadResult, FileError> {
+    pub fn read_binary(
+        &self,
+        raw_path: &str,
+        max_bytes: Option<u64>,
+    ) -> Result<operations::BinaryReadResult, FileError> {
         let path = self.validate_and_resolve(raw_path)?;
         let limit = max_bytes.unwrap_or(self.max_read_bytes);
         operations::read_binary_file(&path, limit)

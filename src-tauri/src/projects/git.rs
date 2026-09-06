@@ -1,9 +1,7 @@
 use std::path::{Component, Path};
 use std::process::{Command, Output};
 
-use super::models::{
-    GitBranches, GitCommit, GitCommitResult, GitFileChange, GitStatus,
-};
+use super::models::{GitBranches, GitCommit, GitCommitResult, GitFileChange, GitStatus};
 
 #[derive(Debug, thiserror::Error)]
 pub enum GitError {
@@ -50,7 +48,9 @@ impl GitManager {
         }
 
         // Must not contain ASCII control characters or space
-        !name.chars().any(|c| c.is_ascii_control() || c.is_whitespace())
+        !name
+            .chars()
+            .any(|c| c.is_ascii_control() || c.is_whitespace())
     }
 
     /// Validates that a file path is strictly relative and does not escape repo
@@ -321,7 +321,9 @@ impl GitManager {
         let hash = String::from_utf8_lossy(&hash_out.stdout).trim().to_string();
 
         let branch_out = Self::run_git(repo_path, &["rev-parse", "--abbrev-ref", "HEAD"])?;
-        let branch = String::from_utf8_lossy(&branch_out.stdout).trim().to_string();
+        let branch = String::from_utf8_lossy(&branch_out.stdout)
+            .trim()
+            .to_string();
 
         Ok(GitCommitResult {
             hash,

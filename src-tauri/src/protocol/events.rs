@@ -28,7 +28,12 @@ impl OrbitEvent {
         )
     }
 
-    pub fn device_paired(device_id: &str, device_name: &str, platform: &str, paired_at: u64) -> Self {
+    pub fn device_paired(
+        device_id: &str,
+        device_name: &str,
+        platform: &str,
+        paired_at: u64,
+    ) -> Self {
         Self::new(
             "device.paired",
             serde_json::json!({
@@ -156,11 +161,7 @@ impl OrbitEvent {
         )
     }
 
-    pub fn ai_task_output(
-        task_id: &str,
-        open_code_session_id: Option<&str>,
-        text: &str,
-    ) -> Self {
+    pub fn ai_task_output(task_id: &str, open_code_session_id: Option<&str>, text: &str) -> Self {
         Self::new(
             "ai.task.output",
             serde_json::json!({
@@ -239,11 +240,7 @@ impl OrbitEvent {
         )
     }
 
-    pub fn ai_task_failed(
-        task_id: &str,
-        open_code_session_id: Option<&str>,
-        error: &str,
-    ) -> Self {
+    pub fn ai_task_failed(task_id: &str, open_code_session_id: Option<&str>, error: &str) -> Self {
         Self::new(
             "ai.task.failed",
             serde_json::json!({
@@ -315,4 +312,3 @@ impl OrbitEvent {
         )
     }
 }
-

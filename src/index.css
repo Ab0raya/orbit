@@ -132,6 +132,9 @@ html, body {
   padding: 20px 14px 16px 16px;
   z-index: 10;
   position: relative;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
 }
 
 .sidebar-brand {
@@ -256,6 +259,143 @@ html, body {
 .sidebar-spacer {
   flex: 1;
 }
+
+/* OpenCode AI Engine Promo / Status Card (Cosmic Aesthetic with Orb Cluster) */
+.sidebar-ai-card {
+  margin-bottom: 8px;
+}
+
+/* Cosmic Orbs Group Container */
+.cosmic-orbs-group {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  border-radius: inherit;
+  z-index: 0;
+}
+
+.cosmic-orb {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+/* Large translucent sphere - partially cropped at top-right corner */
+.orb-large-top-right {
+  width: 96px;
+  height: 96px;
+  top: -28px;
+  right: -24px;
+  background: radial-gradient(circle at 35% 35%, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 55%, transparent 75%);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  box-shadow: inset -2px -2px 8px rgba(0, 0, 0, 0.4), 0 0 25px rgba(255, 255, 255, 0.02);
+}
+
+/* Subtle emerald ambient glow in depth layer */
+.orb-emerald-ambient {
+  width: 80px;
+  height: 80px;
+  top: 8px;
+  right: 10px;
+  background: radial-gradient(circle, rgba(34, 197, 94, 0.065) 0%, rgba(16, 185, 129, 0.02) 50%, transparent 72%);
+  filter: blur(8px);
+}
+
+/* Medium translucent sphere - partially cropped at bottom-left corner */
+.orb-medium-bottom-left {
+  width: 58px;
+  height: 58px;
+  bottom: -18px;
+  left: -8px;
+  background: radial-gradient(circle at 32% 32%, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0.015) 60%, transparent 80%);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: inset -1px -1px 6px rgba(0, 0, 0, 0.3);
+}
+
+/* Mid-sized translucent orb at middle-right */
+.orb-mid-right {
+  width: 32px;
+  height: 32px;
+  top: 50px;
+  right: 28px;
+  background: radial-gradient(circle at 36% 36%, rgba(255, 255, 255, 0.09) 0%, rgba(34, 197, 94, 0.035) 45%, transparent 75%);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* Small sphere at bottom right */
+.orb-small-bottom {
+  width: 18px;
+  height: 18px;
+  bottom: 12px;
+  right: 16px;
+  background: radial-gradient(circle at 35% 35%, rgba(255, 255, 255, 0.11) 0%, rgba(255, 255, 255, 0.02) 70%, transparent 90%);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+/* Micro particle 1 - upper right depth particle */
+.orb-micro-1 {
+  width: 5px;
+  height: 5px;
+  top: 24px;
+  right: 64px;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0.04) 80%);
+  box-shadow: 0 0 5px rgba(255, 255, 255, 0.18);
+}
+
+/* Micro particle 2 - center emerald particle */
+.orb-micro-2 {
+  width: 3.5px;
+  height: 3.5px;
+  top: 42px;
+  right: 48%;
+  background: rgba(34, 197, 94, 0.28);
+  box-shadow: 0 0 6px rgba(34, 197, 94, 0.3);
+}
+
+/* Micro particle 3 - lower right particle */
+.orb-micro-3 {
+  width: 4px;
+  height: 4px;
+  bottom: 24px;
+  right: 42px;
+  background: rgba(255, 255, 255, 0.18);
+  box-shadow: 0 0 4px rgba(255, 255, 255, 0.14);
+}
+
+
+.cosmic-status-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.03em;
+  color: var(--text-secondary);
+}
+
+.cosmic-status-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.cosmic-status-line.status-required .cosmic-status-dot {
+  background-color: #F59E0B;
+  box-shadow: 0 0 6px rgba(245, 158, 11, 0.45);
+}
+
+.cosmic-status-line.status-ready .cosmic-status-dot {
+  background-color: #10B981;
+  box-shadow: 0 0 6px rgba(16, 185, 129, 0.45);
+}
+
+.cosmic-status-text {
+  line-height: 1;
+}
+
 
 /* Cosmic Footer Card */
 .sidebar-cosmic-card {

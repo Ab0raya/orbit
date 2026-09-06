@@ -1,8 +1,8 @@
-use std::env;
-use std::path::{Component, Path, PathBuf};
 use crate::files::path::{is_within_scopes, normalize_path};
 use crate::projects::ProjectManager;
 use crate::protocol::errors::ProtocolError;
+use std::env;
+use std::path::{Component, Path, PathBuf};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ValidatedAiContext {

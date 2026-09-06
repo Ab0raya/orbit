@@ -11,7 +11,11 @@ pub struct OrbitRequest {
 }
 
 impl OrbitRequest {
-    pub fn new(id: impl Into<String>, action: impl Into<String>, payload: serde_json::Value) -> Self {
+    pub fn new(
+        id: impl Into<String>,
+        action: impl Into<String>,
+        payload: serde_json::Value,
+    ) -> Self {
         Self {
             id: id.into(),
             msg_type: "request".to_string(),

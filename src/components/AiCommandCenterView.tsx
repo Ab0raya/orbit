@@ -27,6 +27,7 @@ import {
   AiModelSummary,
   AiActivity,
   AiTaskSummary,
+  OpencodeStatusPayload,
 } from "../types/ai";
 import { aiService } from "../services/aiService";
 
@@ -62,10 +63,48 @@ export const AiCommandCenterView: React.FC<AiCommandCenterViewProps> = ({
   const [deleteWithSession, setDeleteWithSession] = useState<boolean>(false);
   const [sessionUnavailable, setSessionUnavailable] = useState<boolean>(false);
   const [activitiesExpanded, setActivitiesExpanded] = useState<Record<string, boolean>>({});
+  const [engineStatus, setEngineStatus] = useState<OpencodeStatusPayload | null>(null);
 
   const transcriptEndRef = useRef<HTMLDivElement>(null);
   const transcriptContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const checkEngineStatus = useCallback(async () => {
+    try {
+      const s = await aiService.getOpencodeStatus();
+      setEngineStatus(s);
+      return s;
+    } catch (err) {
+      console.error("Failed to check AI engine status:", err);
+      return null;
+    }
+  }, []);
+
+  const handleRetryInstall = async () => {
+    try {
+      setEngineStatus({
+        state: "installing",
+        userMessage: "Preparing AI engine...",
+        isReady: false,
+      });
+      const s = await aiService.installOpencode();
+      setEngineStatus(s);
+    } catch (err) {
+      console.error("Failed to retry install:", err);
+    }
+  };
+
+  useEffect(() => {
+    let timer: any;
+    const poll = async () => {
+      const s = await checkEngineStatus();
+      if (s && (s.state === "checking" || s.state === "installing" || s.state === "updating")) {
+        timer = setTimeout(poll, 2000);
+      }
+    };
+    poll();
+    return () => clearTimeout(timer);
+  }, [checkEngineStatus]);
 
   // Load initial conversations & models
   const loadConversations = useCallback(async () => {
@@ -274,6 +313,17 @@ export const AiCommandCenterView: React.FC<AiCommandCenterViewProps> = ({
         setIsStreaming(false);
         return;
       }
+    }
+
+    // Check AI engine readiness
+    if (engineStatus && !engineStatus.isReady) {
+      if (engineStatus.state === "error") {
+        alert("AI engine is currently unavailable. Please click Retry to install.");
+      } else {
+        alert(engineStatus.userMessage || "Preparing AI engine... Please wait a moment.");
+      }
+      setIsStreaming(false);
+      return;
     }
 
     // Optimistically add user message into UI
@@ -687,6 +737,22 @@ export const AiCommandCenterView: React.FC<AiCommandCenterViewProps> = ({
                 <span>{selectedModel}</span>
               </span>
 
+              {engineStatus && (
+                <span
+                  className={`ai-status-pill ${
+                    engineStatus.isReady
+                      ? "ai-status-completed"
+                      : engineStatus.state === "error"
+                      ? "ai-status-failed"
+                      : "ai-status-running"
+                  }`}
+                  title={engineStatus.path || engineStatus.error || undefined}
+                >
+                  <span className={engineStatus.isReady ? "" : "status-dot-pulse"} />
+                  <span>{engineStatus.userMessage}</span>
+                </span>
+              )}
+
               {isStreaming ? (
                 <span className="ai-status-pill ai-status-running">
                   <span className="status-dot-pulse" />
@@ -766,6 +832,50 @@ export const AiCommandCenterView: React.FC<AiCommandCenterViewProps> = ({
             )}
           </div>
         </div>
+
+        {/* Minimal Engine Provisioning Banner */}
+        {engineStatus && !engineStatus.isReady && (
+          <div
+            className="ai-provisioning-banner"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "10px 16px",
+              background: engineStatus.state === "error" ? "rgba(239, 68, 68, 0.12)" : "rgba(99, 102, 241, 0.12)",
+              borderBottom: engineStatus.state === "error" ? "1px solid rgba(239, 68, 68, 0.25)" : "1px solid rgba(99, 102, 241, 0.25)",
+              fontSize: "13px",
+              color: engineStatus.state === "error" ? "#fca5a5" : "#c7d2fe",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <span
+                className="status-dot-pulse"
+                style={{
+                  background: engineStatus.state === "error" ? "#ef4444" : "#818cf8",
+                }}
+              />
+              <span>{engineStatus.userMessage}</span>
+            </div>
+            {engineStatus.state === "error" && (
+              <button
+                onClick={handleRetryInstall}
+                style={{
+                  background: "#4f46e5",
+                  color: "#fff",
+                  border: "none",
+                  padding: "4px 12px",
+                  borderRadius: "4px",
+                  cursor: "pointer",
+                  fontSize: "12px",
+                  fontWeight: 500,
+                }}
+              >
+                Retry
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Active Task Banner if running */}
         {isStreaming && (

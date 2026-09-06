@@ -234,9 +234,7 @@ pub fn write_text_file_atomic(path: &Path, content: &str) -> Result<u64, FileErr
 /// Creates a new directory.
 pub fn create_dir(path: &Path) -> Result<(), FileError> {
     if path.exists() {
-        return Err(FileError::AlreadyExists(
-            path.to_string_lossy().to_string(),
-        ));
+        return Err(FileError::AlreadyExists(path.to_string_lossy().to_string()));
     }
     fs::create_dir_all(path).map_err(|e| match e.kind() {
         std::io::ErrorKind::PermissionDenied => {
@@ -288,8 +286,16 @@ pub fn delete_path(path: &Path) -> Result<(), FileError> {
 
 /// Detects the high-level category of a file based on its extension or filename.
 pub fn detect_file_category(path: &Path) -> FileCategory {
-    let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
-    let filename = path.file_name().and_then(|f| f.to_str()).unwrap_or("").to_lowercase();
+    let ext = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_lowercase();
+    let filename = path
+        .file_name()
+        .and_then(|f| f.to_str())
+        .unwrap_or("")
+        .to_lowercase();
 
     if filename.starts_with(".env") || filename == "dockerfile" || filename == ".gitignore" {
         return FileCategory::Text;
@@ -297,20 +303,22 @@ pub fn detect_file_category(path: &Path) -> FileCategory {
 
     match ext.as_str() {
         "png" | "jpg" | "jpeg" | "gif" | "webp" | "bmp" | "svg" => FileCategory::Image,
-        "dart" | "ts" | "tsx" | "js" | "jsx" | "rs" | "py" | "java" | "kotlin" | "kt"
-        | "swift" | "c" | "cpp" | "h" | "hpp" | "go" | "php" | "rb" | "sh" | "bash"
-        | "zsh" | "css" | "scss" | "html" | "htm" | "vue" | "svelte" | "sql" | "toml" => {
-            FileCategory::Code
-        }
-        "txt" | "md" | "markdown" | "log" | "yaml" | "yml" | "json" | "xml" | "csv"
-        | "env" | "ini" | "conf" => FileCategory::Text,
+        "dart" | "ts" | "tsx" | "js" | "jsx" | "rs" | "py" | "java" | "kotlin" | "kt" | "swift"
+        | "c" | "cpp" | "h" | "hpp" | "go" | "php" | "rb" | "sh" | "bash" | "zsh" | "css"
+        | "scss" | "html" | "htm" | "vue" | "svelte" | "sql" | "toml" => FileCategory::Code,
+        "txt" | "md" | "markdown" | "log" | "yaml" | "yml" | "json" | "xml" | "csv" | "env"
+        | "ini" | "conf" => FileCategory::Text,
         _ => FileCategory::Binary,
     }
 }
 
 /// Detects the MIME type of a file.
 pub fn detect_mime_type(path: &Path) -> String {
-    let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
+    let ext = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_lowercase();
     match ext.as_str() {
         "png" => "image/png".to_string(),
         "jpg" | "jpeg" => "image/jpeg".to_string(),
@@ -425,8 +433,10 @@ pub fn extract_image_dimensions(path: &Path) -> Option<(u32, u32)> {
             let height = 1 + ((b1 >> 6) | (b2 << 2) | ((b3 & 0xF) << 10));
             return Some((width, height));
         } else if &data[12..16] == b"VP8X" && data.len() >= 30 {
-            let width = 1 + (data[24] as u32 | ((data[25] as u32) << 8) | ((data[26] as u32) << 16));
-            let height = 1 + (data[27] as u32 | ((data[28] as u32) << 8) | ((data[29] as u32) << 16));
+            let width =
+                1 + (data[24] as u32 | ((data[25] as u32) << 8) | ((data[26] as u32) << 16));
+            let height =
+                1 + (data[27] as u32 | ((data[28] as u32) << 8) | ((data[29] as u32) << 16));
             return Some((width, height));
         }
     }
@@ -455,8 +465,16 @@ pub fn read_binary_file(path: &Path, max_bytes: u64) -> Result<BinaryReadResult,
     })?;
 
     let file_size = metadata.len();
-    let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("").to_string();
-    let extension = path.extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
+    let name = path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("")
+        .to_string();
+    let extension = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_lowercase();
     let file_category = detect_file_category(path);
     let mime_type = detect_mime_type(path);
     let dimensions = if file_category == FileCategory::Image {
@@ -469,7 +487,9 @@ pub fn read_binary_file(path: &Path, max_bytes: u64) -> Result<BinaryReadResult,
         None => (None, None),
     };
 
-    let modified_at = metadata.modified().ok()
+    let modified_at = metadata
+        .modified()
+        .ok()
         .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
         .map(|d| d.as_secs());
 

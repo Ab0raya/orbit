@@ -1,5 +1,5 @@
-use std::path::{Path, PathBuf};
 use crate::protocol::errors::ProtocolError;
+use std::path::PathBuf;
 
 pub const MIN_COLS: u16 = 20;
 pub const MAX_COLS: u16 = 500;
@@ -125,6 +125,7 @@ pub fn validate_dimensions(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::Path;
 
     #[test]
     fn test_default_shell_detection() {
@@ -141,7 +142,10 @@ mod tests {
 
     #[test]
     fn test_validate_cwd_valid() {
-        let current = std::env::current_dir().unwrap().to_string_lossy().to_string();
+        let current = std::env::current_dir()
+            .unwrap()
+            .to_string_lossy()
+            .to_string();
         let validated = validate_cwd(Some(&current)).expect("Failed to validate current dir");
         assert_eq!(validated, current);
     }

@@ -54,9 +54,7 @@ impl SystemManager {
         let arch = std::env::consts::ARCH.to_string();
 
         // Primary local IP
-        let primary_ip = local_ip_address::local_ip()
-            .ok()
-            .map(|ip| ip.to_string());
+        let primary_ip = local_ip_address::local_ip().ok().map(|ip| ip.to_string());
 
         // Network interfaces and IP addresses
         let mut local_ips = Vec::new();
@@ -92,4 +90,3 @@ impl Default for SystemManager {
         Self::new()
     }
 }
-

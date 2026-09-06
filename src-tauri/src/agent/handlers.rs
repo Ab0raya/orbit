@@ -103,14 +103,12 @@ impl ActionHandlers {
             let attempts = ctx.session_manager.increment_failed_attempts(conn_id);
             println!(
                 "[Orbit Security] Pairing failed on connection '{}' (failed attempt {}/{})",
-                conn_id, attempts, crate::agent::session::MAX_PAIRING_ATTEMPTS
+                conn_id,
+                attempts,
+                crate::agent::session::MAX_PAIRING_ATTEMPTS
             );
             return (
-                OrbitResponse::error(
-                    &req.id,
-                    &req.action,
-                    ProtocolError::invalid_pairing_code(),
-                ),
+                OrbitResponse::error(&req.id, &req.action, ProtocolError::invalid_pairing_code()),
                 None,
             );
         }
@@ -129,12 +127,12 @@ impl ActionHandlers {
             .and_then(|v| v.as_str())
             .unwrap_or("unknown");
 
-        let existing_device_id = req
-            .payload
-            .get("deviceId")
-            .and_then(|v| v.as_str());
+        let existing_device_id = req.payload.get("deviceId").and_then(|v| v.as_str());
 
-        match ctx.session_manager.mark_paired(conn_id, device_name, platform, existing_device_id) {
+        match ctx
+            .session_manager
+            .mark_paired(conn_id, device_name, platform, existing_device_id)
+        {
             Ok(paired_device) => {
                 println!(
                     "[Orbit Security] Pairing SUCCESS: device '{}' ({}) paired with ID '{}' on connection '{}'",
@@ -160,7 +158,10 @@ impl ActionHandlers {
                 (response, Some(event))
             }
             Err(e) => {
-                eprintln!("[Orbit Security] Internal error during pairing registration: {}", e);
+                eprintln!(
+                    "[Orbit Security] Internal error during pairing registration: {}",
+                    e
+                );
                 (
                     OrbitResponse::error(
                         &req.id,
@@ -173,7 +174,10 @@ impl ActionHandlers {
         }
     }
 
-    pub fn handle_session_resume(req: &OrbitRequest, ctx: &ActionContext) -> (OrbitResponse, Option<OrbitEvent>) {
+    pub fn handle_session_resume(
+        req: &OrbitRequest,
+        ctx: &ActionContext,
+    ) -> (OrbitResponse, Option<OrbitEvent>) {
         let conn_id = &ctx.connection_id;
         let device_id = match req.payload.get("deviceId").and_then(|v| v.as_str()) {
             Some(id) if !id.trim().is_empty() => id.trim(),
@@ -182,7 +186,9 @@ impl ActionHandlers {
                     OrbitResponse::error(
                         &req.id,
                         &req.action,
-                        ProtocolError::unauthorized("Missing or invalid 'deviceId' for session resume"),
+                        ProtocolError::unauthorized(
+                            "Missing or invalid 'deviceId' for session resume",
+                        ),
                     ),
                     None,
                 );
@@ -348,10 +354,21 @@ impl ActionHandlers {
         };
 
         let cwd = req.payload.get("cwd").and_then(|v| v.as_str());
-        let cols = req.payload.get("cols").and_then(|v| v.as_u64()).map(|v| v as u16);
-        let rows = req.payload.get("rows").and_then(|v| v.as_u64()).map(|v| v as u16);
+        let cols = req
+            .payload
+            .get("cols")
+            .and_then(|v| v.as_u64())
+            .map(|v| v as u16);
+        let rows = req
+            .payload
+            .get("rows")
+            .and_then(|v| v.as_u64())
+            .map(|v| v as u16);
 
-        match ctx.terminal_manager.create_session(&device_id, cwd, cols, rows) {
+        match ctx
+            .terminal_manager
+            .create_session(&device_id, cwd, cols, rows)
+        {
             Ok(session) => {
                 let summary = session.to_summary();
                 let event = OrbitEvent::terminal_created(&summary.session_id);
@@ -384,7 +401,9 @@ impl ActionHandlers {
                 return OrbitResponse::error(
                     &req.id,
                     &req.action,
-                    ProtocolError::malformed_message("Missing 'sessionId' in terminal.input payload"),
+                    ProtocolError::malformed_message(
+                        "Missing 'sessionId' in terminal.input payload",
+                    ),
                 )
             }
         };
@@ -400,8 +419,13 @@ impl ActionHandlers {
             }
         };
 
-        match ctx.terminal_manager.write_input(session_id, &device_id, data) {
-            Ok(()) => OrbitResponse::success(&req.id, &req.action, serde_json::json!({ "success": true })),
+        match ctx
+            .terminal_manager
+            .write_input(session_id, &device_id, data)
+        {
+            Ok(()) => {
+                OrbitResponse::success(&req.id, &req.action, serde_json::json!({ "success": true }))
+            }
             Err(err) => OrbitResponse::error(&req.id, &req.action, err),
         }
     }
@@ -418,7 +442,9 @@ impl ActionHandlers {
                 return OrbitResponse::error(
                     &req.id,
                     &req.action,
-                    ProtocolError::malformed_message("Missing 'sessionId' in terminal.resize payload"),
+                    ProtocolError::malformed_message(
+                        "Missing 'sessionId' in terminal.resize payload",
+                    ),
                 )
             }
         };
@@ -445,8 +471,13 @@ impl ActionHandlers {
             }
         };
 
-        match ctx.terminal_manager.resize(session_id, &device_id, cols, rows) {
-            Ok(()) => OrbitResponse::success(&req.id, &req.action, serde_json::json!({ "success": true })),
+        match ctx
+            .terminal_manager
+            .resize(session_id, &device_id, cols, rows)
+        {
+            Ok(()) => {
+                OrbitResponse::success(&req.id, &req.action, serde_json::json!({ "success": true }))
+            }
             Err(err) => OrbitResponse::error(&req.id, &req.action, err),
         }
     }
@@ -463,13 +494,17 @@ impl ActionHandlers {
                 return OrbitResponse::error(
                     &req.id,
                     &req.action,
-                    ProtocolError::malformed_message("Missing 'sessionId' in terminal.kill payload"),
+                    ProtocolError::malformed_message(
+                        "Missing 'sessionId' in terminal.kill payload",
+                    ),
                 )
             }
         };
 
         match ctx.terminal_manager.kill_session(session_id, &device_id) {
-            Ok(()) => OrbitResponse::success(&req.id, &req.action, serde_json::json!({ "success": true })),
+            Ok(()) => {
+                OrbitResponse::success(&req.id, &req.action, serde_json::json!({ "success": true }))
+            }
             Err(err) => OrbitResponse::error(&req.id, &req.action, err),
         }
     }
@@ -502,7 +537,9 @@ impl ActionHandlers {
                 return OrbitResponse::error(
                     &req.id,
                     &req.action,
-                    ProtocolError::malformed_message("Missing 'sessionId' in terminal.history payload"),
+                    ProtocolError::malformed_message(
+                        "Missing 'sessionId' in terminal.history payload",
+                    ),
                 )
             }
         };
@@ -536,9 +573,15 @@ impl ActionHandlers {
     }
 
     pub fn handle_files_list(req: &OrbitRequest, ctx: &ActionContext) -> OrbitResponse {
-        let path = req.payload.get("path").and_then(|v| v.as_str()).unwrap_or("");
+        let path = req
+            .payload
+            .get("path")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
         match ctx.file_manager.list(path) {
-            Ok(res) => OrbitResponse::success(&req.id, &req.action, serde_json::to_value(res).unwrap()),
+            Ok(res) => {
+                OrbitResponse::success(&req.id, &req.action, serde_json::to_value(res).unwrap())
+            }
             Err(err) => OrbitResponse::error(&req.id, &req.action, map_file_error(err)),
         }
     }
@@ -556,7 +599,9 @@ impl ActionHandlers {
         };
 
         match ctx.file_manager.read(path) {
-            Ok(res) => OrbitResponse::success(&req.id, &req.action, serde_json::to_value(res).unwrap()),
+            Ok(res) => {
+                OrbitResponse::success(&req.id, &req.action, serde_json::to_value(res).unwrap())
+            }
             Err(err) => OrbitResponse::error(&req.id, &req.action, map_file_error(err)),
         }
     }
@@ -576,7 +621,9 @@ impl ActionHandlers {
         let max_bytes = req.payload.get("maxBytes").and_then(|v| v.as_u64());
 
         match ctx.file_manager.read_binary(path, max_bytes) {
-            Ok(res) => OrbitResponse::success(&req.id, &req.action, serde_json::to_value(res).unwrap()),
+            Ok(res) => {
+                OrbitResponse::success(&req.id, &req.action, serde_json::to_value(res).unwrap())
+            }
             Err(err) => OrbitResponse::error(&req.id, &req.action, map_file_error(err)),
         }
     }
@@ -605,7 +652,9 @@ impl ActionHandlers {
         };
 
         match ctx.file_manager.write(path, content) {
-            Ok(res) => OrbitResponse::success(&req.id, &req.action, serde_json::to_value(res).unwrap()),
+            Ok(res) => {
+                OrbitResponse::success(&req.id, &req.action, serde_json::to_value(res).unwrap())
+            }
             Err(err) => OrbitResponse::error(&req.id, &req.action, map_file_error(err)),
         }
     }
@@ -779,11 +828,9 @@ impl ActionHandlers {
         };
 
         match ctx.project_manager.info(path) {
-            Ok(info) => OrbitResponse::success(
-                &req.id,
-                &req.action,
-                serde_json::to_value(info).unwrap(),
-            ),
+            Ok(info) => {
+                OrbitResponse::success(&req.id, &req.action, serde_json::to_value(info).unwrap())
+            }
             Err(err) => OrbitResponse::error(&req.id, &req.action, map_project_error(err)),
         }
     }
@@ -801,11 +848,9 @@ impl ActionHandlers {
         };
 
         match ctx.project_manager.git_status(path) {
-            Ok(status) => OrbitResponse::success(
-                &req.id,
-                &req.action,
-                serde_json::to_value(status).unwrap(),
-            ),
+            Ok(status) => {
+                OrbitResponse::success(&req.id, &req.action, serde_json::to_value(status).unwrap())
+            }
             Err(err) => OrbitResponse::error(&req.id, &req.action, map_project_error(err)),
         }
     }
@@ -856,11 +901,9 @@ impl ActionHandlers {
         };
 
         match ctx.project_manager.git_checkout(path, branch) {
-            Ok(status) => OrbitResponse::success(
-                &req.id,
-                &req.action,
-                serde_json::to_value(status).unwrap(),
-            ),
+            Ok(status) => {
+                OrbitResponse::success(&req.id, &req.action, serde_json::to_value(status).unwrap())
+            }
             Err(err) => OrbitResponse::error(&req.id, &req.action, map_project_error(err)),
         }
     }
@@ -889,11 +932,9 @@ impl ActionHandlers {
         };
 
         match ctx.project_manager.git_create_branch(path, name) {
-            Ok(status) => OrbitResponse::success(
-                &req.id,
-                &req.action,
-                serde_json::to_value(status).unwrap(),
-            ),
+            Ok(status) => {
+                OrbitResponse::success(&req.id, &req.action, serde_json::to_value(status).unwrap())
+            }
             Err(err) => OrbitResponse::error(&req.id, &req.action, map_project_error(err)),
         }
     }
@@ -920,11 +961,9 @@ impl ActionHandlers {
             .unwrap_or_default();
 
         match ctx.project_manager.git_stage(path, &paths) {
-            Ok(status) => OrbitResponse::success(
-                &req.id,
-                &req.action,
-                serde_json::to_value(status).unwrap(),
-            ),
+            Ok(status) => {
+                OrbitResponse::success(&req.id, &req.action, serde_json::to_value(status).unwrap())
+            }
             Err(err) => OrbitResponse::error(&req.id, &req.action, map_project_error(err)),
         }
     }
@@ -951,11 +990,9 @@ impl ActionHandlers {
             .unwrap_or_default();
 
         match ctx.project_manager.git_unstage(path, &paths) {
-            Ok(status) => OrbitResponse::success(
-                &req.id,
-                &req.action,
-                serde_json::to_value(status).unwrap(),
-            ),
+            Ok(status) => {
+                OrbitResponse::success(&req.id, &req.action, serde_json::to_value(status).unwrap())
+            }
             Err(err) => OrbitResponse::error(&req.id, &req.action, map_project_error(err)),
         }
     }
@@ -984,11 +1021,9 @@ impl ActionHandlers {
         };
 
         match ctx.project_manager.git_commit(path, message) {
-            Ok(res) => OrbitResponse::success(
-                &req.id,
-                &req.action,
-                serde_json::to_value(res).unwrap(),
-            ),
+            Ok(res) => {
+                OrbitResponse::success(&req.id, &req.action, serde_json::to_value(res).unwrap())
+            }
             Err(err) => OrbitResponse::error(&req.id, &req.action, map_project_error(err)),
         }
     }
@@ -1005,7 +1040,11 @@ impl ActionHandlers {
             }
         };
 
-        let limit = req.payload.get("limit").and_then(|v| v.as_u64()).unwrap_or(20) as usize;
+        let limit = req
+            .payload
+            .get("limit")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(20) as usize;
 
         match ctx.project_manager.git_log(path, limit) {
             Ok(commits) => OrbitResponse::success(
@@ -1025,7 +1064,11 @@ impl ActionHandlers {
             Err(e) => return OrbitResponse::error(&req.id, &req.action, e),
         };
 
-        let project_path = req.payload.get("projectPath").and_then(|v| v.as_str()).unwrap_or("");
+        let project_path = req
+            .payload
+            .get("projectPath")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
 
         let prompt = match req.payload.get("prompt").and_then(|v| v.as_str()) {
             Some(p) => p,
@@ -1040,12 +1083,29 @@ impl ActionHandlers {
 
         let agent = req.payload.get("agent").and_then(|v| v.as_str());
         let read_only = req.payload.get("readOnly").and_then(|v| v.as_bool());
-        let conversation_id = req.payload.get("conversationId").and_then(|v| v.as_str()).map(|s| s.to_string());
-        let model = req.payload.get("model").or_else(|| req.payload.get("modelId")).and_then(|v| v.as_str()).map(|s| s.to_string());
+        let conversation_id = req
+            .payload
+            .get("conversationId")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
+        let model = req
+            .payload
+            .get("model")
+            .or_else(|| req.payload.get("modelId"))
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
 
         match ctx
             .ai_task_manager
-            .start_task_extended(&device_id, project_path, prompt, agent, read_only, conversation_id, model)
+            .start_task_extended(
+                &device_id,
+                project_path,
+                prompt,
+                agent,
+                read_only,
+                conversation_id,
+                model,
+            )
             .await
         {
             Ok(summary) => OrbitResponse::success(
@@ -1063,7 +1123,11 @@ impl ActionHandlers {
             Err(e) => return OrbitResponse::error(&req.id, &req.action, e),
         };
 
-        let session_id = match req.payload.get("openCodeSessionId").and_then(|v| v.as_str()) {
+        let session_id = match req
+            .payload
+            .get("openCodeSessionId")
+            .and_then(|v| v.as_str())
+        {
             Some(s) => s,
             None => {
                 return OrbitResponse::error(
@@ -1074,7 +1138,11 @@ impl ActionHandlers {
             }
         };
 
-        let project_path = req.payload.get("projectPath").and_then(|v| v.as_str()).unwrap_or("");
+        let project_path = req
+            .payload
+            .get("projectPath")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
 
         let prompt = match req.payload.get("prompt").and_then(|v| v.as_str()) {
             Some(p) => p,
@@ -1089,12 +1157,30 @@ impl ActionHandlers {
 
         let agent = req.payload.get("agent").and_then(|v| v.as_str());
         let read_only = req.payload.get("readOnly").and_then(|v| v.as_bool());
-        let conversation_id = req.payload.get("conversationId").and_then(|v| v.as_str()).map(|s| s.to_string());
-        let model = req.payload.get("model").or_else(|| req.payload.get("modelId")).and_then(|v| v.as_str()).map(|s| s.to_string());
+        let conversation_id = req
+            .payload
+            .get("conversationId")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
+        let model = req
+            .payload
+            .get("model")
+            .or_else(|| req.payload.get("modelId"))
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
 
         match ctx
             .ai_task_manager
-            .resume_task_extended(&device_id, session_id, project_path, prompt, agent, read_only, conversation_id, model)
+            .resume_task_extended(
+                &device_id,
+                session_id,
+                project_path,
+                prompt,
+                agent,
+                read_only,
+                conversation_id,
+                model,
+            )
             .await
         {
             Ok(summary) => OrbitResponse::success(
@@ -1179,7 +1265,10 @@ impl ActionHandlers {
         }
     }
 
-    pub async fn handle_ai_permission_resolve(req: &OrbitRequest, ctx: &ActionContext) -> OrbitResponse {
+    pub async fn handle_ai_permission_resolve(
+        req: &OrbitRequest,
+        ctx: &ActionContext,
+    ) -> OrbitResponse {
         let device_id = match get_authenticated_device_id(ctx) {
             Ok(d) => d,
             Err(e) => return OrbitResponse::error(&req.id, &req.action, e),
@@ -1202,7 +1291,9 @@ impl ActionHandlers {
                 return OrbitResponse::error(
                     &req.id,
                     &req.action,
-                    ProtocolError::malformed_message("Missing 'decision' parameter ('allow', 'always', or 'deny')"),
+                    ProtocolError::malformed_message(
+                        "Missing 'decision' parameter ('allow', 'always', or 'deny')",
+                    ),
                 );
             }
         };
@@ -1223,7 +1314,11 @@ impl ActionHandlers {
             }
         };
 
-        match ctx.ai_task_manager.resolve_permission(&device_id, permission_id, decision).await {
+        match ctx
+            .ai_task_manager
+            .resolve_permission(&device_id, permission_id, decision)
+            .await
+        {
             Ok(resolved_req) => OrbitResponse::success(
                 &req.id,
                 &req.action,
@@ -1257,25 +1352,48 @@ impl ActionHandlers {
         let provider_id = req.payload.get("providerId").and_then(|v| v.as_str());
         let model_id = req.payload.get("modelId").and_then(|v| v.as_str());
 
-        match ctx.ai_task_manager.conversation_store().create_conversation(
-            title,
-            project_path,
-            directory_path,
-            context_type,
-            provider_id,
-            model_id,
-        ) {
-            Ok(summary) => OrbitResponse::success(&req.id, &req.action, serde_json::to_value(&summary).unwrap_or_default()),
+        match ctx
+            .ai_task_manager
+            .conversation_store()
+            .create_conversation(
+                title,
+                project_path,
+                directory_path,
+                context_type,
+                provider_id,
+                model_id,
+            ) {
+            Ok(summary) => OrbitResponse::success(
+                &req.id,
+                &req.action,
+                serde_json::to_value(&summary).unwrap_or_default(),
+            ),
             Err(e) => OrbitResponse::error(&req.id, &req.action, e),
         }
     }
 
     pub fn handle_ai_conversation_list(req: &OrbitRequest, ctx: &ActionContext) -> OrbitResponse {
-        let limit = req.payload.get("limit").and_then(|v| v.as_u64()).unwrap_or(50) as usize;
-        let offset = req.payload.get("offset").and_then(|v| v.as_u64()).unwrap_or(0) as usize;
+        let limit = req
+            .payload
+            .get("limit")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(50) as usize;
+        let offset = req
+            .payload
+            .get("offset")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0) as usize;
 
-        match ctx.ai_task_manager.conversation_store().list_conversations(limit, offset) {
-            Ok(list) => OrbitResponse::success(&req.id, &req.action, serde_json::json!({ "conversations": list })),
+        match ctx
+            .ai_task_manager
+            .conversation_store()
+            .list_conversations(limit, offset)
+        {
+            Ok(list) => OrbitResponse::success(
+                &req.id,
+                &req.action,
+                serde_json::json!({ "conversations": list }),
+            ),
             Err(e) => OrbitResponse::error(&req.id, &req.action, e),
         }
     }
@@ -1289,12 +1407,30 @@ impl ActionHandlers {
             .and_then(|v| v.as_str())
         {
             Some(id) => id,
-            None => return OrbitResponse::error(&req.id, &req.action, ProtocolError::malformed_message("Missing 'conversationId'")),
+            None => {
+                return OrbitResponse::error(
+                    &req.id,
+                    &req.action,
+                    ProtocolError::malformed_message("Missing 'conversationId'"),
+                )
+            }
         };
 
-        match ctx.ai_task_manager.conversation_store().get_conversation(conv_id) {
-            Ok(Some(detail)) => OrbitResponse::success(&req.id, &req.action, serde_json::to_value(&detail).unwrap_or_default()),
-            Ok(None) => OrbitResponse::error(&req.id, &req.action, ProtocolError::internal_error("Conversation not found")),
+        match ctx
+            .ai_task_manager
+            .conversation_store()
+            .get_conversation(conv_id)
+        {
+            Ok(Some(detail)) => OrbitResponse::success(
+                &req.id,
+                &req.action,
+                serde_json::to_value(&detail).unwrap_or_default(),
+            ),
+            Ok(None) => OrbitResponse::error(
+                &req.id,
+                &req.action,
+                ProtocolError::internal_error("Conversation not found"),
+            ),
             Err(e) => OrbitResponse::error(&req.id, &req.action, e),
         }
     }
@@ -1308,15 +1444,33 @@ impl ActionHandlers {
             .and_then(|v| v.as_str())
         {
             Some(id) => id,
-            None => return OrbitResponse::error(&req.id, &req.action, ProtocolError::malformed_message("Missing 'conversationId'")),
+            None => {
+                return OrbitResponse::error(
+                    &req.id,
+                    &req.action,
+                    ProtocolError::malformed_message("Missing 'conversationId'"),
+                )
+            }
         };
         let title = match req.payload.get("title").and_then(|v| v.as_str()) {
             Some(t) => t,
-            None => return OrbitResponse::error(&req.id, &req.action, ProtocolError::malformed_message("Missing 'title'")),
+            None => {
+                return OrbitResponse::error(
+                    &req.id,
+                    &req.action,
+                    ProtocolError::malformed_message("Missing 'title'"),
+                )
+            }
         };
 
-        match ctx.ai_task_manager.conversation_store().update_title(conv_id, title) {
-            Ok(()) => OrbitResponse::success(&req.id, &req.action, serde_json::json!({ "success": true })),
+        match ctx
+            .ai_task_manager
+            .conversation_store()
+            .update_title(conv_id, title)
+        {
+            Ok(()) => {
+                OrbitResponse::success(&req.id, &req.action, serde_json::json!({ "success": true }))
+            }
             Err(e) => OrbitResponse::error(&req.id, &req.action, e),
         }
     }
@@ -1330,15 +1484,29 @@ impl ActionHandlers {
             .and_then(|v| v.as_str())
         {
             Some(id) => id,
-            None => return OrbitResponse::error(&req.id, &req.action, ProtocolError::malformed_message("Missing 'conversationId'")),
+            None => {
+                return OrbitResponse::error(
+                    &req.id,
+                    &req.action,
+                    ProtocolError::malformed_message("Missing 'conversationId'"),
+                )
+            }
         };
 
-        let delete_session = req.payload.get("deleteSession").and_then(|v| v.as_bool()).unwrap_or(false);
+        let delete_session = req
+            .payload
+            .get("deleteSession")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
         if delete_session {
-            if let Ok(Some(detail)) = ctx.ai_task_manager.conversation_store().get_conversation(conv_id) {
+            if let Ok(Some(detail)) = ctx
+                .ai_task_manager
+                .conversation_store()
+                .get_conversation(conv_id)
+            {
                 if let Some(ref sid) = detail.open_code_session_id {
                     if let Ok(bin) = crate::ai::process::find_opencode_binary() {
-                        let _ = std::process::Command::new(bin)
+                        let _ = crate::opencode_manager::new_std_command(bin)
                             .args(["session", "delete", sid])
                             .output();
                     }
@@ -1346,18 +1514,40 @@ impl ActionHandlers {
             }
         }
 
-        match ctx.ai_task_manager.conversation_store().delete_conversation(conv_id) {
-            Ok(()) => OrbitResponse::success(&req.id, &req.action, serde_json::json!({ "success": true })),
+        match ctx
+            .ai_task_manager
+            .conversation_store()
+            .delete_conversation(conv_id)
+        {
+            Ok(()) => {
+                OrbitResponse::success(&req.id, &req.action, serde_json::json!({ "success": true }))
+            }
             Err(e) => OrbitResponse::error(&req.id, &req.action, e),
         }
     }
 
     pub fn handle_ai_conversation_search(req: &OrbitRequest, ctx: &ActionContext) -> OrbitResponse {
-        let query = req.payload.get("query").and_then(|v| v.as_str()).unwrap_or("");
-        let limit = req.payload.get("limit").and_then(|v| v.as_u64()).unwrap_or(20) as usize;
+        let query = req
+            .payload
+            .get("query")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+        let limit = req
+            .payload
+            .get("limit")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(20) as usize;
 
-        match ctx.ai_task_manager.conversation_store().search_conversations(query, limit) {
-            Ok(results) => OrbitResponse::success(&req.id, &req.action, serde_json::json!({ "results": results, "conversations": results })),
+        match ctx
+            .ai_task_manager
+            .conversation_store()
+            .search_conversations(query, limit)
+        {
+            Ok(results) => OrbitResponse::success(
+                &req.id,
+                &req.action,
+                serde_json::json!({ "results": results, "conversations": results }),
+            ),
             Err(e) => OrbitResponse::error(&req.id, &req.action, e),
         }
     }
@@ -1371,24 +1561,48 @@ impl ActionHandlers {
             .and_then(|v| v.as_str())
         {
             Some(id) => id,
-            None => return OrbitResponse::error(&req.id, &req.action, ProtocolError::malformed_message("Missing 'conversationId'")),
+            None => {
+                return OrbitResponse::error(
+                    &req.id,
+                    &req.action,
+                    ProtocolError::malformed_message("Missing 'conversationId'"),
+                )
+            }
         };
-        let format = req.payload.get("format").and_then(|v| v.as_str()).unwrap_or("markdown");
+        let format = req
+            .payload
+            .get("format")
+            .and_then(|v| v.as_str())
+            .unwrap_or("markdown");
 
         let res = match format.to_lowercase().as_str() {
-            "json" => ctx.ai_task_manager.conversation_store().export_json(conv_id),
-            _ => ctx.ai_task_manager.conversation_store().export_markdown(conv_id),
+            "json" => ctx
+                .ai_task_manager
+                .conversation_store()
+                .export_json(conv_id),
+            _ => ctx
+                .ai_task_manager
+                .conversation_store()
+                .export_markdown(conv_id),
         };
 
         match res {
-            Ok(content) => OrbitResponse::success(&req.id, &req.action, serde_json::json!({ "content": content, "format": format })),
+            Ok(content) => OrbitResponse::success(
+                &req.id,
+                &req.action,
+                serde_json::json!({ "content": content, "format": format }),
+            ),
             Err(e) => OrbitResponse::error(&req.id, &req.action, e),
         }
     }
 
     pub fn handle_ai_providers_list(req: &OrbitRequest, ctx: &ActionContext) -> OrbitResponse {
         match ctx.ai_task_manager.provider_manager().list_providers() {
-            Ok(providers) => OrbitResponse::success(&req.id, &req.action, serde_json::json!({ "providers": providers })),
+            Ok(providers) => OrbitResponse::success(
+                &req.id,
+                &req.action,
+                serde_json::json!({ "providers": providers }),
+            ),
             Err(e) => OrbitResponse::error(&req.id, &req.action, e),
         }
     }
@@ -1396,37 +1610,74 @@ impl ActionHandlers {
     pub fn handle_ai_provider_get(req: &OrbitRequest, ctx: &ActionContext) -> OrbitResponse {
         let provider_id = match req.payload.get("providerId").and_then(|v| v.as_str()) {
             Some(id) => id,
-            None => return OrbitResponse::error(&req.id, &req.action, ProtocolError::malformed_message("Missing 'providerId'")),
+            None => {
+                return OrbitResponse::error(
+                    &req.id,
+                    &req.action,
+                    ProtocolError::malformed_message("Missing 'providerId'"),
+                )
+            }
         };
 
         match ctx.ai_task_manager.provider_manager().list_providers() {
             Ok(providers) => {
                 if let Some(p) = providers.into_iter().find(|p| p.provider_id == provider_id) {
-                    OrbitResponse::success(&req.id, &req.action, serde_json::to_value(&p).unwrap_or_default())
+                    OrbitResponse::success(
+                        &req.id,
+                        &req.action,
+                        serde_json::to_value(&p).unwrap_or_default(),
+                    )
                 } else {
-                    OrbitResponse::error(&req.id, &req.action, ProtocolError::internal_error("Provider not found"))
+                    OrbitResponse::error(
+                        &req.id,
+                        &req.action,
+                        ProtocolError::internal_error("Provider not found"),
+                    )
                 }
             }
             Err(e) => OrbitResponse::error(&req.id, &req.action, e),
         }
     }
 
-    pub fn handle_ai_provider_auth_status(req: &OrbitRequest, ctx: &ActionContext) -> OrbitResponse {
+    pub fn handle_ai_provider_auth_status(
+        req: &OrbitRequest,
+        ctx: &ActionContext,
+    ) -> OrbitResponse {
         Self::handle_ai_provider_get(req, ctx)
     }
 
     pub fn handle_ai_provider_login(req: &OrbitRequest, ctx: &ActionContext) -> OrbitResponse {
         let provider_id = match req.payload.get("providerId").and_then(|v| v.as_str()) {
             Some(id) => id,
-            None => return OrbitResponse::error(&req.id, &req.action, ProtocolError::malformed_message("Missing 'providerId'")),
+            None => {
+                return OrbitResponse::error(
+                    &req.id,
+                    &req.action,
+                    ProtocolError::malformed_message("Missing 'providerId'"),
+                )
+            }
         };
         let api_key = match req.payload.get("apiKey").and_then(|v| v.as_str()) {
             Some(k) => k,
-            None => return OrbitResponse::error(&req.id, &req.action, ProtocolError::malformed_message("Missing 'apiKey'")),
+            None => {
+                return OrbitResponse::error(
+                    &req.id,
+                    &req.action,
+                    ProtocolError::malformed_message("Missing 'apiKey'"),
+                )
+            }
         };
 
-        match ctx.ai_task_manager.provider_manager().set_provider_key(provider_id, api_key) {
-            Ok(summary) => OrbitResponse::success(&req.id, &req.action, serde_json::to_value(&summary).unwrap_or_default()),
+        match ctx
+            .ai_task_manager
+            .provider_manager()
+            .set_provider_key(provider_id, api_key)
+        {
+            Ok(summary) => OrbitResponse::success(
+                &req.id,
+                &req.action,
+                serde_json::to_value(&summary).unwrap_or_default(),
+            ),
             Err(e) => OrbitResponse::error(&req.id, &req.action, e),
         }
     }
@@ -1434,11 +1685,23 @@ impl ActionHandlers {
     pub fn handle_ai_provider_logout(req: &OrbitRequest, ctx: &ActionContext) -> OrbitResponse {
         let provider_id = match req.payload.get("providerId").and_then(|v| v.as_str()) {
             Some(id) => id,
-            None => return OrbitResponse::error(&req.id, &req.action, ProtocolError::malformed_message("Missing 'providerId'")),
+            None => {
+                return OrbitResponse::error(
+                    &req.id,
+                    &req.action,
+                    ProtocolError::malformed_message("Missing 'providerId'"),
+                )
+            }
         };
 
-        match ctx.ai_task_manager.provider_manager().logout_provider(provider_id) {
-            Ok(()) => OrbitResponse::success(&req.id, &req.action, serde_json::json!({ "success": true })),
+        match ctx
+            .ai_task_manager
+            .provider_manager()
+            .logout_provider(provider_id)
+        {
+            Ok(()) => {
+                OrbitResponse::success(&req.id, &req.action, serde_json::json!({ "success": true }))
+            }
             Err(e) => OrbitResponse::error(&req.id, &req.action, e),
         }
     }
@@ -1446,20 +1709,48 @@ impl ActionHandlers {
     pub async fn handle_ai_provider_test(req: &OrbitRequest, ctx: &ActionContext) -> OrbitResponse {
         let provider_id = match req.payload.get("providerId").and_then(|v| v.as_str()) {
             Some(id) => id,
-            None => return OrbitResponse::error(&req.id, &req.action, ProtocolError::malformed_message("Missing 'providerId'")),
+            None => {
+                return OrbitResponse::error(
+                    &req.id,
+                    &req.action,
+                    ProtocolError::malformed_message("Missing 'providerId'"),
+                )
+            }
         };
 
-        match ctx.ai_task_manager.provider_manager().test_provider(provider_id).await {
-            Ok(success) => OrbitResponse::success(&req.id, &req.action, serde_json::json!({ "success": success })),
+        match ctx
+            .ai_task_manager
+            .provider_manager()
+            .test_provider(provider_id)
+            .await
+        {
+            Ok(success) => OrbitResponse::success(
+                &req.id,
+                &req.action,
+                serde_json::json!({ "success": success }),
+            ),
             Err(e) => OrbitResponse::error(&req.id, &req.action, e),
         }
     }
 
     pub async fn handle_ai_models_list(req: &OrbitRequest, ctx: &ActionContext) -> OrbitResponse {
-        let provider_filter = req.payload.get("providerId").or_else(|| req.payload.get("provider")).and_then(|v| v.as_str());
+        let provider_filter = req
+            .payload
+            .get("providerId")
+            .or_else(|| req.payload.get("provider"))
+            .and_then(|v| v.as_str());
 
-        match ctx.ai_task_manager.provider_manager().list_models(provider_filter).await {
-            Ok(models) => OrbitResponse::success(&req.id, &req.action, serde_json::json!({ "models": models })),
+        match ctx
+            .ai_task_manager
+            .provider_manager()
+            .list_models(provider_filter)
+            .await
+        {
+            Ok(models) => OrbitResponse::success(
+                &req.id,
+                &req.action,
+                serde_json::json!({ "models": models }),
+            ),
             Err(e) => OrbitResponse::error(&req.id, &req.action, e),
         }
     }
@@ -1467,14 +1758,35 @@ impl ActionHandlers {
     pub fn handle_ai_model_set_default(req: &OrbitRequest, ctx: &ActionContext) -> OrbitResponse {
         let provider_id = match req.payload.get("providerId").and_then(|v| v.as_str()) {
             Some(id) => id,
-            None => return OrbitResponse::error(&req.id, &req.action, ProtocolError::malformed_message("Missing 'providerId'")),
+            None => {
+                return OrbitResponse::error(
+                    &req.id,
+                    &req.action,
+                    ProtocolError::malformed_message("Missing 'providerId'"),
+                )
+            }
         };
         let model_id = match req.payload.get("modelId").and_then(|v| v.as_str()) {
             Some(id) => id,
-            None => return OrbitResponse::error(&req.id, &req.action, ProtocolError::malformed_message("Missing 'modelId'")),
+            None => {
+                return OrbitResponse::error(
+                    &req.id,
+                    &req.action,
+                    ProtocolError::malformed_message("Missing 'modelId'"),
+                )
+            }
         };
-        let agent = req.payload.get("agent").and_then(|v| v.as_str()).unwrap_or("plan");
-        let context_behavior = req.payload.get("contextBehavior").or_else(|| req.payload.get("context")).and_then(|v| v.as_str()).unwrap_or("none");
+        let agent = req
+            .payload
+            .get("agent")
+            .and_then(|v| v.as_str())
+            .unwrap_or("plan");
+        let context_behavior = req
+            .payload
+            .get("contextBehavior")
+            .or_else(|| req.payload.get("context"))
+            .and_then(|v| v.as_str())
+            .unwrap_or("none");
 
         let defaults = crate::ai::storage::AiDefaults {
             provider_id: provider_id.to_string(),
@@ -1483,17 +1795,38 @@ impl ActionHandlers {
             context_behavior: context_behavior.to_string(),
         };
 
-        match ctx.ai_task_manager.conversation_store().set_defaults(&defaults) {
-            Ok(()) => OrbitResponse::success(&req.id, &req.action, serde_json::to_value(&defaults).unwrap_or_default()),
+        match ctx
+            .ai_task_manager
+            .conversation_store()
+            .set_defaults(&defaults)
+        {
+            Ok(()) => OrbitResponse::success(
+                &req.id,
+                &req.action,
+                serde_json::to_value(&defaults).unwrap_or_default(),
+            ),
             Err(e) => OrbitResponse::error(&req.id, &req.action, e),
         }
     }
 
     pub async fn handle_ai_usage_get(req: &OrbitRequest, ctx: &ActionContext) -> OrbitResponse {
-        let days = req.payload.get("days").and_then(|v| v.as_u64()).map(|d| d as u32);
+        let days = req
+            .payload
+            .get("days")
+            .and_then(|v| v.as_u64())
+            .map(|d| d as u32);
 
-        match ctx.ai_task_manager.provider_manager().get_usage_stats(days).await {
-            Ok(stats) => OrbitResponse::success(&req.id, &req.action, serde_json::to_value(&stats).unwrap_or_default()),
+        match ctx
+            .ai_task_manager
+            .provider_manager()
+            .get_usage_stats(days)
+            .await
+        {
+            Ok(stats) => OrbitResponse::success(
+                &req.id,
+                &req.action,
+                serde_json::to_value(&stats).unwrap_or_default(),
+            ),
             Err(e) => OrbitResponse::error(&req.id, &req.action, e),
         }
     }

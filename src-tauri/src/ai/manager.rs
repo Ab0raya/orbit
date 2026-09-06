@@ -7,7 +7,7 @@ use uuid::Uuid;
 
 use super::models::{AiAgent, AiBroadcastEvent, AiTask, AiTaskStatus, AiTaskSummary};
 use super::parser::{redact_secrets, OpenCodeEventParser, ParsedOpenCodeItem};
-use super::process::{find_opencode_binary, OpenCodeRunner};
+use super::process::OpenCodeRunner;
 use crate::projects::ProjectManager;
 use crate::protocol::errors::ProtocolError;
 
@@ -26,18 +26,42 @@ pub struct AiTaskManager {
     permission_manager: Arc<super::permission::PermissionManager>,
     conversation_store: Arc<super::storage::AiConversationStore>,
     provider_manager: Arc<super::provider_manager::AiProviderManager>,
+    opencode_manager: Arc<crate::opencode_manager::OpencodeManager>,
 }
 
 impl AiTaskManager {
     pub fn new(project_manager: Arc<ProjectManager>) -> Self {
-        let store = super::storage::AiConversationStore::default_store()
-            .unwrap_or_else(|_| super::storage::AiConversationStore::new_in_memory().expect("in-memory sqlite"));
-        Self::with_store(project_manager, Arc::new(store))
+        let store = super::storage::AiConversationStore::default_store().unwrap_or_else(|_| {
+            super::storage::AiConversationStore::new_in_memory().expect("in-memory sqlite")
+        });
+        let opencode_manager =
+            Arc::new(crate::opencode_manager::OpencodeManager::with_default_dir());
+        Self::with_all(project_manager, Arc::new(store), opencode_manager)
     }
 
     pub fn with_store(
         project_manager: Arc<ProjectManager>,
         conversation_store: Arc<super::storage::AiConversationStore>,
+    ) -> Self {
+        let opencode_manager =
+            Arc::new(crate::opencode_manager::OpencodeManager::with_default_dir());
+        Self::with_all(project_manager, conversation_store, opencode_manager)
+    }
+
+    pub fn with_opencode_manager(
+        project_manager: Arc<ProjectManager>,
+        opencode_manager: Arc<crate::opencode_manager::OpencodeManager>,
+    ) -> Self {
+        let store = super::storage::AiConversationStore::default_store().unwrap_or_else(|_| {
+            super::storage::AiConversationStore::new_in_memory().expect("in-memory sqlite")
+        });
+        Self::with_all(project_manager, Arc::new(store), opencode_manager)
+    }
+
+    pub fn with_all(
+        project_manager: Arc<ProjectManager>,
+        conversation_store: Arc<super::storage::AiConversationStore>,
+        opencode_manager: Arc<crate::opencode_manager::OpencodeManager>,
     ) -> Self {
         let (event_sender, _) = broadcast::channel(512);
         Self {
@@ -48,7 +72,12 @@ impl AiTaskManager {
             permission_manager: Arc::new(super::permission::PermissionManager::new()),
             conversation_store,
             provider_manager: Arc::new(super::provider_manager::AiProviderManager::new()),
+            opencode_manager,
         }
+    }
+
+    pub fn opencode_manager(&self) -> Arc<crate::opencode_manager::OpencodeManager> {
+        Arc::clone(&self.opencode_manager)
     }
 
     pub fn conversation_store(&self) -> Arc<super::storage::AiConversationStore> {
@@ -102,7 +131,10 @@ impl AiTaskManager {
         Ok(task)
     }
 
-    pub fn list_pending_permissions(&self, device_id: &str) -> Vec<super::permission::AiPermissionRequest> {
+    pub fn list_pending_permissions(
+        &self,
+        device_id: &str,
+    ) -> Vec<super::permission::AiPermissionRequest> {
         self.permission_manager.list_pending(device_id)
     }
 
@@ -112,7 +144,10 @@ impl AiTaskManager {
         permission_id: &str,
         decision: super::permission::AiPermissionDecision,
     ) -> Result<super::permission::AiPermissionRequest, ProtocolError> {
-        let req = self.permission_manager.resolve_request(device_id, permission_id, decision).await?;
+        let req = self
+            .permission_manager
+            .resolve_request(device_id, permission_id, decision)
+            .await?;
 
         let reply_str = match decision {
             super::permission::AiPermissionDecision::Allow => "once",
@@ -126,14 +161,16 @@ impl AiTaskManager {
             super::permission::AiPermissionDecision::Deny => "denied",
         };
 
-        let _ = self.event_sender.send(AiBroadcastEvent::PermissionResolved {
-            task_id: req.task_id.clone(),
-            device_id: req.device_id.clone(),
-            open_code_session_id: req.session_id.clone(),
-            permission_id: req.permission_id.clone(),
-            decision: decision_str.to_string(),
-            reply: reply_str.to_string(),
-        });
+        let _ = self
+            .event_sender
+            .send(AiBroadcastEvent::PermissionResolved {
+                task_id: req.task_id.clone(),
+                device_id: req.device_id.clone(),
+                open_code_session_id: req.session_id.clone(),
+                permission_id: req.permission_id.clone(),
+                decision: decision_str.to_string(),
+                reply: reply_str.to_string(),
+            });
 
         // Add activity record to the task
         let task_arc_opt = {
@@ -158,8 +195,16 @@ impl AiTaskManager {
                 title: title.clone(),
                 detail: Some(format!("Action '{}' on {}", req.action, req.project_path)),
                 tool: Some(req.tool.clone()),
-                command: if req.tool == "bash" { Some(req.target.clone()) } else { None },
-                file_path: if req.tool != "bash" { Some(req.target.clone()) } else { None },
+                command: if req.tool == "bash" {
+                    Some(req.target.clone())
+                } else {
+                    None
+                },
+                file_path: if req.tool != "bash" {
+                    Some(req.target.clone())
+                } else {
+                    None
+                },
                 duration_ms: None,
                 exit_code: None,
             };
@@ -308,10 +353,7 @@ impl AiTaskManager {
         conversation_id_opt: Option<String>,
         model_override: Option<String>,
     ) -> Result<AiTaskSummary, ProtocolError> {
-        // 1. Verify OpenCode binary
-        let binary_path = find_opencode_binary()?;
-
-        // 2. Validate prompt
+        // 1. Validate prompt
         let prompt_trimmed = prompt.trim();
         if prompt_trimmed.is_empty() {
             return Err(ProtocolError::ai_task_invalid_prompt(
@@ -319,7 +361,7 @@ impl AiTaskManager {
             ));
         }
 
-        // 3. Resolve & validate agent mode
+        // 2. Resolve & validate agent mode
         let agent = if let Some(a_str) = agent_str {
             AiAgent::from_str_loose(a_str).ok_or_else(|| {
                 ProtocolError::ai_task_invalid_agent(format!(
@@ -337,18 +379,26 @@ impl AiTaskManager {
             AiAgent::Build => read_only_opt.unwrap_or(false),
         };
 
-        // 4. Validate working context via validate_ai_working_directory
-        let (execution_path, reported_project_path) = match super::context::validate_ai_working_directory(raw_project_path, &self.project_manager) {
-            Ok(super::context::ValidatedAiContext::NoContext) => {
-                let sandbox = std::env::temp_dir().join("orbit_ai_sandbox");
-                let _ = std::fs::create_dir_all(&sandbox);
-                (sandbox, std::path::PathBuf::from(""))
-            }
-            Ok(super::context::ValidatedAiContext::Directory(p)) => {
-                (p.clone(), p)
-            }
-            Err(e) => return Err(e),
-        };
+        // 3. Validate working context via validate_ai_working_directory
+        let (execution_path, reported_project_path) =
+            match super::context::validate_ai_working_directory(
+                raw_project_path,
+                &self.project_manager,
+            ) {
+                Ok(super::context::ValidatedAiContext::NoContext) => {
+                    let sandbox = std::env::temp_dir().join("orbit_ai_sandbox");
+                    let _ = std::fs::create_dir_all(&sandbox);
+                    (sandbox, std::path::PathBuf::from(""))
+                }
+                Ok(super::context::ValidatedAiContext::Directory(p)) => (p.clone(), p),
+                Err(e) => return Err(e),
+            };
+
+        // 4. Resolve OpenCode binary from OpencodeManager
+        let binary_path = self
+            .opencode_manager
+            .resolve_binary_path()
+            .map_err(|e| ProtocolError::opencode_not_found_with_msg(e))?;
 
         // 5. Conversation resolution and SQLite record
         // Authoritative model resolution, identical for Desktop and Mobile:
@@ -369,31 +419,63 @@ impl AiTaskManager {
                     let m_id = model_override.or(conv.model_id).or(default_model.clone());
                     (cid.clone(), s_id, m_id)
                 } else {
-                    (cid.clone(), resume_session_id, model_override.or(default_model.clone()))
+                    (
+                        cid.clone(),
+                        resume_session_id,
+                        model_override.or(default_model.clone()),
+                    )
                 }
             } else if let Some(ref sid) = resume_session_id {
                 if let Ok(Some(conv)) = store.get_conversation_by_session_id(sid) {
-                    (conv.id, Some(sid.clone()), model_override.or(conv.model_id).or(default_model.clone()))
+                    (
+                        conv.id,
+                        Some(sid.clone()),
+                        model_override.or(conv.model_id).or(default_model.clone()),
+                    )
                 } else {
                     let summary = store.create_conversation(
-                        Some(&super::storage::AiConversationStore::generate_safe_title(prompt_trimmed)),
-                        if raw_project_path.is_empty() { None } else { Some(raw_project_path) },
+                        Some(&super::storage::AiConversationStore::generate_safe_title(
+                            prompt_trimmed,
+                        )),
+                        if raw_project_path.is_empty() {
+                            None
+                        } else {
+                            Some(raw_project_path)
+                        },
                         None,
-                        Some(if raw_project_path.is_empty() { "none" } else { "project" }),
+                        Some(if raw_project_path.is_empty() {
+                            "none"
+                        } else {
+                            "project"
+                        }),
                         None,
                         model_override.as_deref(),
                     )?;
                     let _ = store.update_session_mapping(&summary.id, sid);
-                    (summary.id, Some(sid.clone()), model_override.or(default_model.clone()))
+                    (
+                        summary.id,
+                        Some(sid.clone()),
+                        model_override.or(default_model.clone()),
+                    )
                 }
             } else {
                 let defs = store.get_defaults().unwrap_or_default();
                 let chosen_model = model_override.unwrap_or(defs.model_id);
                 let summary = store.create_conversation(
-                    Some(&super::storage::AiConversationStore::generate_safe_title(prompt_trimmed)),
-                    if raw_project_path.is_empty() { None } else { Some(raw_project_path) },
+                    Some(&super::storage::AiConversationStore::generate_safe_title(
+                        prompt_trimmed,
+                    )),
+                    if raw_project_path.is_empty() {
+                        None
+                    } else {
+                        Some(raw_project_path)
+                    },
                     None,
-                    Some(if raw_project_path.is_empty() { "none" } else { "project" }),
+                    Some(if raw_project_path.is_empty() {
+                        "none"
+                    } else {
+                        "project"
+                    }),
                     Some(&defs.provider_id),
                     Some(&chosen_model),
                 )?;
@@ -407,20 +489,24 @@ impl AiTaskManager {
 
         // Record user message in SQLite
         let user_msg_id = format!("msg_{}", Uuid::new_v4().simple());
-        let _ = self.conversation_store.add_message(&super::storage::AiConversationMessage {
-            id: user_msg_id,
-            conversation_id: conversation_id.clone(),
-            role: "user".to_string(),
-            content: prompt_trimmed.to_string(),
-            created_at: chrono::Utc::now().timestamp(),
-            status: "completed".to_string(),
-            task_id: Some(task_id.clone()),
-            provider_id: None,
-            model_id: effective_model.clone(),
-            activities: Vec::new(),
-            error: None,
-        });
-        let _ = self.conversation_store.update_status(&conversation_id, "running");
+        let _ = self
+            .conversation_store
+            .add_message(&super::storage::AiConversationMessage {
+                id: user_msg_id,
+                conversation_id: conversation_id.clone(),
+                role: "user".to_string(),
+                content: prompt_trimmed.to_string(),
+                created_at: chrono::Utc::now().timestamp(),
+                status: "completed".to_string(),
+                task_id: Some(task_id.clone()),
+                provider_id: None,
+                model_id: effective_model.clone(),
+                activities: Vec::new(),
+                error: None,
+            });
+        let _ = self
+            .conversation_store
+            .update_status(&conversation_id, "running");
 
         let task = AiTask {
             task_id: task_id.clone(),
@@ -1225,14 +1311,16 @@ impl AiTaskManager {
         // Cancel all pending permissions for this task
         let cancelled_perms = self.permission_manager.cancel_task_requests(task_id).await;
         for perm in cancelled_perms {
-            let _ = self.event_sender.send(AiBroadcastEvent::PermissionResolved {
-                task_id: perm.task_id,
-                device_id: perm.device_id,
-                open_code_session_id: perm.session_id,
-                permission_id: perm.permission_id,
-                decision: "cancelled".to_string(),
-                reply: "reject".to_string(),
-            });
+            let _ = self
+                .event_sender
+                .send(AiBroadcastEvent::PermissionResolved {
+                    task_id: perm.task_id,
+                    device_id: perm.device_id,
+                    open_code_session_id: perm.session_id,
+                    permission_id: perm.permission_id,
+                    decision: "cancelled".to_string(),
+                    reply: "reject".to_string(),
+                });
         }
 
         Ok(())

@@ -1,7 +1,7 @@
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
-use serde::{Deserialize, Serialize};
 
 use crate::ai::process::find_opencode_binary;
 use crate::protocol::errors::ProtocolError;
@@ -85,10 +85,29 @@ impl AiProviderManager {
     }
 
     fn auth_file_path() -> PathBuf {
-        if let Ok(home) = std::env::var("HOME") {
-            PathBuf::from(home).join(".local/share/opencode/auth.json")
-        } else {
-            PathBuf::from("/tmp/opencode_auth.json")
+        let base_dir = std::env::var("HOME")
+            .or_else(|_| std::env::var("USERPROFILE"))
+            .map(PathBuf::from)
+            .unwrap_or_else(|_| {
+                if cfg!(windows) {
+                    std::env::var("APPDATA")
+                        .map(PathBuf::from)
+                        .unwrap_or_else(|_| PathBuf::from("."))
+                } else {
+                    PathBuf::from("/tmp")
+                }
+            });
+        base_dir
+            .join(".local")
+            .join("share")
+            .join("opencode")
+            .join("auth.json")
+    }
+
+    pub fn canonical_provider_id(provider_id: &str) -> &str {
+        match provider_id {
+            "opencode-zen" | "opencode_zen" => "opencode",
+            other => other,
         }
     }
 
@@ -109,7 +128,7 @@ impl AiProviderManager {
             ("anthropic", "Anthropic"),
             ("google", "Google Gemini"),
             ("deepseek", "DeepSeek"),
-            ("opencode-zen", "OpenCode Zen"),
+            ("opencode", "OpenCode Zen"),
             ("groq", "Groq"),
             ("mistral", "Mistral AI"),
         ]
@@ -117,7 +136,7 @@ impl AiProviderManager {
 
     pub fn list_providers(&self) -> Result<Vec<AiProviderSummary>, ProtocolError> {
         let auth_path = Self::auth_file_path();
-        let configured: HashMap<String, serde_json::Value> = if auth_path.is_file() {
+        let mut configured: HashMap<String, serde_json::Value> = if auth_path.is_file() {
             match std::fs::read_to_string(&auth_path) {
                 Ok(content) => serde_json::from_str(&content).unwrap_or_default(),
                 Err(_) => HashMap::new(),
@@ -126,11 +145,47 @@ impl AiProviderManager {
             HashMap::new()
         };
 
+        // If legacy "opencode-zen" or "opencode_zen" exists but canonical "opencode" does not,
+        // transparently migrate it so OpenCode CLI runtime can immediately authenticate.
+        if !configured.contains_key("opencode") {
+            if let Some(legacy) = configured
+                .get("opencode-zen")
+                .or_else(|| configured.get("opencode_zen"))
+                .cloned()
+            {
+                configured.insert("opencode".to_string(), legacy);
+                if let Ok(serialized) = serde_json::to_string_pretty(&configured) {
+                    let temp_path = auth_path.with_extension("tmp");
+                    if std::fs::write(&temp_path, &serialized).is_ok() {
+                        #[cfg(unix)]
+                        {
+                            use std::os::unix::fs::PermissionsExt;
+                            let _ = std::fs::set_permissions(
+                                &temp_path,
+                                std::fs::Permissions::from_mode(0o600),
+                            );
+                        }
+                        let _ = std::fs::rename(&temp_path, &auth_path);
+                    }
+                }
+            }
+        }
+
         let mut result = Vec::new();
         let known = Self::get_known_providers();
 
         for (p_id, p_name) in &known {
-            if let Some(entry) = configured.get(*p_id) {
+            let entry = configured.get(*p_id).or_else(|| {
+                if *p_id == "opencode" {
+                    configured
+                        .get("opencode-zen")
+                        .or_else(|| configured.get("opencode_zen"))
+                } else {
+                    None
+                }
+            });
+
+            if let Some(entry) = entry {
                 let key_str = entry.get("key").and_then(|k| k.as_str()).unwrap_or("");
                 let masked = if !key_str.is_empty() {
                     Some(Self::mask_key(key_str))
@@ -171,6 +226,10 @@ impl AiProviderManager {
 
         // Also check if any configured provider in auth.json is not in known list
         for (k, entry) in &configured {
+            // Ignore legacy aliases
+            if k == "opencode-zen" || k == "opencode_zen" {
+                continue;
+            }
             if !known.iter().any(|(id, _)| *id == k.as_str()) {
                 let key_str = entry.get("key").and_then(|val| val.as_str()).unwrap_or("");
                 result.push(AiProviderSummary {
@@ -197,7 +256,12 @@ impl AiProviderManager {
         }
     }
 
-    pub fn set_provider_key(&self, provider_id: &str, api_key: &str) -> Result<AiProviderSummary, ProtocolError> {
+    pub fn set_provider_key(
+        &self,
+        provider_id: &str,
+        api_key: &str,
+    ) -> Result<AiProviderSummary, ProtocolError> {
+        let canonical_id = Self::canonical_provider_id(provider_id);
         let trimmed_key = api_key.trim();
         if trimmed_key.is_empty() {
             return Err(ProtocolError::internal_error("API key cannot be empty"));
@@ -221,15 +285,23 @@ impl AiProviderManager {
             "type": "api",
             "key": trimmed_key,
         });
-        map.insert(provider_id.to_string(), entry);
+        map.insert(canonical_id.to_string(), entry);
 
-        let serialized = serde_json::to_string_pretty(&map)
-            .map_err(|e| ProtocolError::internal_error(format!("Failed to serialize auth.json: {}", e)))?;
+        // Keep auth.json clean: if configuring opencode, remove legacy aliases
+        if canonical_id == "opencode" {
+            map.remove("opencode-zen");
+            map.remove("opencode_zen");
+        }
+
+        let serialized = serde_json::to_string_pretty(&map).map_err(|e| {
+            ProtocolError::internal_error(format!("Failed to serialize auth.json: {}", e))
+        })?;
 
         // Atomic write with restricted file permissions
         let temp_path = auth_path.with_extension("tmp");
-        std::fs::write(&temp_path, serialized)
-            .map_err(|e| ProtocolError::internal_error(format!("Failed to write temporary auth file: {}", e)))?;
+        std::fs::write(&temp_path, serialized).map_err(|e| {
+            ProtocolError::internal_error(format!("Failed to write temporary auth file: {}", e))
+        })?;
 
         #[cfg(unix)]
         {
@@ -238,23 +310,26 @@ impl AiProviderManager {
             let _ = std::fs::set_permissions(&temp_path, perms);
         }
 
-        std::fs::rename(&temp_path, &auth_path)
-            .map_err(|e| ProtocolError::internal_error(format!("Failed to save auth.json: {}", e)))?;
+        std::fs::rename(&temp_path, &auth_path).map_err(|e| {
+            ProtocolError::internal_error(format!("Failed to save auth.json: {}", e))
+        })?;
 
         // Clear models cache for this provider to allow refresh
         {
             let mut cache = self.models_cache.lock().unwrap();
+            cache.remove(canonical_id);
             cache.remove(provider_id);
+            cache.remove("all");
         }
 
         let name = Self::get_known_providers()
             .into_iter()
-            .find(|(id, _)| *id == provider_id)
+            .find(|(id, _)| *id == canonical_id)
             .map(|(_, n)| n.to_string())
-            .unwrap_or_else(|| Self::capitalize(provider_id));
+            .unwrap_or_else(|| Self::capitalize(canonical_id));
 
         Ok(AiProviderSummary {
-            provider_id: provider_id.to_string(),
+            provider_id: canonical_id.to_string(),
             name,
             connected: true,
             auth_method: "API Key".to_string(),
@@ -266,6 +341,7 @@ impl AiProviderManager {
     }
 
     pub fn logout_provider(&self, provider_id: &str) -> Result<(), ProtocolError> {
+        let canonical_id = Self::canonical_provider_id(provider_id);
         let auth_path = Self::auth_file_path();
         if !auth_path.is_file() {
             return Ok(());
@@ -276,12 +352,27 @@ impl AiProviderManager {
             .and_then(|c| serde_json::from_str(&c).ok())
             .unwrap_or_default();
 
-        if map.remove(provider_id).is_some() {
-            let serialized = serde_json::to_string_pretty(&map)
-                .map_err(|e| ProtocolError::internal_error(format!("Failed to serialize auth: {}", e)))?;
+        let mut changed = map.remove(canonical_id).is_some();
+        if canonical_id == "opencode" {
+            if map.remove("opencode-zen").is_some() {
+                changed = true;
+            }
+            if map.remove("opencode_zen").is_some() {
+                changed = true;
+            }
+        }
+        if provider_id != canonical_id && map.remove(provider_id).is_some() {
+            changed = true;
+        }
 
-            std::fs::write(&auth_path, serialized)
-                .map_err(|e| ProtocolError::internal_error(format!("Failed to update auth file: {}", e)))?;
+        if changed {
+            let serialized = serde_json::to_string_pretty(&map).map_err(|e| {
+                ProtocolError::internal_error(format!("Failed to serialize auth: {}", e))
+            })?;
+
+            std::fs::write(&auth_path, serialized).map_err(|e| {
+                ProtocolError::internal_error(format!("Failed to update auth file: {}", e))
+            })?;
 
             #[cfg(unix)]
             {
@@ -292,25 +383,34 @@ impl AiProviderManager {
         }
 
         let mut cache = self.models_cache.lock().unwrap();
+        cache.remove(canonical_id);
         cache.remove(provider_id);
+        cache.remove("all");
 
         Ok(())
     }
 
     pub async fn test_provider(&self, provider_id: &str) -> Result<bool, ProtocolError> {
+        let canonical_id = Self::canonical_provider_id(provider_id);
         let binary_path = find_opencode_binary()?;
-        let output = tokio::process::Command::new(binary_path)
+        let output = crate::opencode_manager::new_tokio_command(binary_path)
             .arg("models")
-            .arg(provider_id)
+            .arg(canonical_id)
             .output()
             .await
-            .map_err(|e| ProtocolError::internal_error(format!("Failed to test provider: {}", e)))?;
+            .map_err(|e| {
+                ProtocolError::internal_error(format!("Failed to test provider: {}", e))
+            })?;
 
         Ok(output.status.success())
     }
 
-    pub async fn list_models(&self, provider_filter: Option<&str>) -> Result<Vec<AiModelSummary>, ProtocolError> {
-        let cache_key = provider_filter.unwrap_or("all").to_string();
+    pub async fn list_models(
+        &self,
+        provider_filter: Option<&str>,
+    ) -> Result<Vec<AiModelSummary>, ProtocolError> {
+        let canonical_filter = provider_filter.map(Self::canonical_provider_id);
+        let cache_key = canonical_filter.unwrap_or("all").to_string();
         let now = chrono::Utc::now().timestamp();
 
         // Check cache (valid for 5 minutes)
@@ -325,12 +425,12 @@ impl AiProviderManager {
 
         let binary_path = match find_opencode_binary() {
             Ok(p) => p,
-            Err(_) => return Ok(self.fallback_models(provider_filter)),
+            Err(_) => return Ok(self.fallback_models(canonical_filter)),
         };
 
-        let mut cmd = tokio::process::Command::new(binary_path);
+        let mut cmd = crate::opencode_manager::new_tokio_command(binary_path);
         cmd.arg("models");
-        if let Some(p) = provider_filter {
+        if let Some(p) = canonical_filter {
             cmd.arg(p);
         }
 
@@ -346,7 +446,11 @@ impl AiProviderManager {
                         continue;
                     }
                     let parts: Vec<&str> = trimmed.splitn(2, '/').collect();
-                    let prov = if parts.len() == 2 { parts[0] } else { "opencode" };
+                    let prov = if parts.len() == 2 {
+                        parts[0]
+                    } else {
+                        "opencode"
+                    };
                     let name = if parts.len() == 2 { parts[1] } else { trimmed };
 
                     result.push(AiModelSummary {
@@ -361,7 +465,7 @@ impl AiProviderManager {
         }
 
         if result.is_empty() {
-            result = self.fallback_models(provider_filter);
+            result = self.fallback_models(canonical_filter);
         }
 
         // Limit to reasonable list if huge
@@ -380,14 +484,34 @@ impl AiProviderManager {
 
     fn fallback_models(&self, provider_filter: Option<&str>) -> Vec<AiModelSummary> {
         let all = vec![
-            ("openrouter/openrouter/free", "openrouter", "OpenRouter Free (Auto)"),
-            ("openrouter/anthropic/claude-3.7-sonnet", "openrouter", "Claude 3.7 Sonnet (OpenRouter)"),
-            ("openrouter/openai/gpt-4o", "openrouter", "GPT-4o (OpenRouter)"),
+            (
+                "openrouter/openrouter/free",
+                "openrouter",
+                "OpenRouter Free (Auto)",
+            ),
+            (
+                "openrouter/anthropic/claude-3.7-sonnet",
+                "openrouter",
+                "Claude 3.7 Sonnet (OpenRouter)",
+            ),
+            (
+                "openrouter/openai/gpt-4o",
+                "openrouter",
+                "GPT-4o (OpenRouter)",
+            ),
             ("openai/gpt-4o", "openai", "GPT-4o"),
             ("openai/gpt-4o-mini", "openai", "GPT-4o Mini"),
             ("openai/o3-mini", "openai", "o3-mini"),
-            ("anthropic/claude-3-7-sonnet-latest", "anthropic", "Claude 3.7 Sonnet"),
-            ("anthropic/claude-3-5-haiku-latest", "anthropic", "Claude 3.5 Haiku"),
+            (
+                "anthropic/claude-3-7-sonnet-latest",
+                "anthropic",
+                "Claude 3.7 Sonnet",
+            ),
+            (
+                "anthropic/claude-3-5-haiku-latest",
+                "anthropic",
+                "Claude 3.5 Haiku",
+            ),
             ("google/gemini-2.0-flash", "google", "Gemini 2.0 Flash"),
             ("deepseek/deepseek-chat", "deepseek", "DeepSeek V3"),
         ];
@@ -412,7 +536,7 @@ impl AiProviderManager {
 
     pub async fn get_usage_stats(&self, days: Option<u32>) -> Result<AiUsageStats, ProtocolError> {
         let binary_path = find_opencode_binary()?;
-        let mut cmd = tokio::process::Command::new(binary_path);
+        let mut cmd = crate::opencode_manager::new_tokio_command(binary_path);
         cmd.arg("stats");
         cmd.arg("--models");
         if let Some(d) = days {
@@ -420,10 +544,9 @@ impl AiProviderManager {
             cmd.arg(d.to_string());
         }
 
-        let output = cmd
-            .output()
-            .await
-            .map_err(|e| ProtocolError::internal_error(format!("Failed to run opencode stats: {}", e)))?;
+        let output = cmd.output().await.map_err(|e| {
+            ProtocolError::internal_error(format!("Failed to run opencode stats: {}", e))
+        })?;
 
         let stdout = String::from_utf8_lossy(&output.stdout);
         Ok(Self::parse_stats_output(&stdout))
@@ -474,22 +597,43 @@ impl AiProviderManager {
             match current_section {
                 "OVERVIEW" => {
                     if trimmed.starts_with("Sessions") {
-                        sessions = trimmed.split_whitespace().last().and_then(|s| s.parse().ok()).unwrap_or(0);
+                        sessions = trimmed
+                            .split_whitespace()
+                            .last()
+                            .and_then(|s| s.parse().ok())
+                            .unwrap_or(0);
                     } else if trimmed.starts_with("Messages") {
-                        messages = trimmed.split_whitespace().last().and_then(|s| s.parse().ok()).unwrap_or(0);
+                        messages = trimmed
+                            .split_whitespace()
+                            .last()
+                            .and_then(|s| s.parse().ok())
+                            .unwrap_or(0);
                     } else if trimmed.starts_with("Days") {
-                        days = trimmed.split_whitespace().last().and_then(|s| s.parse().ok()).unwrap_or(0);
+                        days = trimmed
+                            .split_whitespace()
+                            .last()
+                            .and_then(|s| s.parse().ok())
+                            .unwrap_or(0);
                     }
                 }
                 "COST" => {
                     if trimmed.starts_with("Total Cost") {
-                        total_cost = trimmed.split_whitespace().last().unwrap_or("$0.00").to_string();
+                        total_cost = trimmed
+                            .split_whitespace()
+                            .last()
+                            .unwrap_or("$0.00")
+                            .to_string();
                     } else if trimmed.starts_with("Avg Cost/Day") {
-                        avg_cost = trimmed.split_whitespace().last().unwrap_or("$0.00").to_string();
+                        avg_cost = trimmed
+                            .split_whitespace()
+                            .last()
+                            .unwrap_or("$0.00")
+                            .to_string();
                     } else if trimmed.starts_with("Input") {
                         input_tokens = trimmed.split_whitespace().last().unwrap_or("0").to_string();
                     } else if trimmed.starts_with("Output") {
-                        output_tokens = trimmed.split_whitespace().last().unwrap_or("0").to_string();
+                        output_tokens =
+                            trimmed.split_whitespace().last().unwrap_or("0").to_string();
                     } else if trimmed.starts_with("Cache Read") {
                         cache_read = trimmed.split_whitespace().last().unwrap_or("0").to_string();
                     } else if trimmed.starts_with("Cache Write") {
@@ -498,7 +642,10 @@ impl AiProviderManager {
                 }
                 "MODEL" => {
                     // Check if this line is a model name (e.g. contains '/')
-                    if trimmed.contains('/') && !trimmed.contains("Tokens") && !trimmed.contains("Messages") {
+                    if trimmed.contains('/')
+                        && !trimmed.contains("Tokens")
+                        && !trimmed.contains("Messages")
+                    {
                         if let Some(m) = current_model.take() {
                             models.push(m);
                         }
@@ -511,13 +658,23 @@ impl AiProviderManager {
                         });
                     } else if let Some(ref mut m) = current_model {
                         if trimmed.starts_with("Messages") {
-                            m.messages = trimmed.split_whitespace().last().and_then(|s| s.parse().ok()).unwrap_or(0);
+                            m.messages = trimmed
+                                .split_whitespace()
+                                .last()
+                                .and_then(|s| s.parse().ok())
+                                .unwrap_or(0);
                         } else if trimmed.starts_with("Input Tokens") {
-                            m.input_tokens = trimmed.split_whitespace().last().unwrap_or("0").to_string();
+                            m.input_tokens =
+                                trimmed.split_whitespace().last().unwrap_or("0").to_string();
                         } else if trimmed.starts_with("Output Tokens") {
-                            m.output_tokens = trimmed.split_whitespace().last().unwrap_or("0").to_string();
+                            m.output_tokens =
+                                trimmed.split_whitespace().last().unwrap_or("0").to_string();
                         } else if trimmed.starts_with("Cost") {
-                            m.cost = trimmed.split_whitespace().last().unwrap_or("$0.00").to_string();
+                            m.cost = trimmed
+                                .split_whitespace()
+                                .last()
+                                .unwrap_or("$0.00")
+                                .to_string();
                         }
                     }
                 }
@@ -526,8 +683,17 @@ impl AiProviderManager {
                     let parts: Vec<&str> = trimmed.split_whitespace().collect();
                     if parts.len() >= 3 {
                         let tool_name = parts[0].to_string();
-                        let count = parts.iter().rev().nth(1).and_then(|c| c.parse().ok()).unwrap_or(0);
-                        let percentage = parts.last().unwrap_or(&"").trim_matches(['(', ')']).to_string();
+                        let count = parts
+                            .iter()
+                            .rev()
+                            .nth(1)
+                            .and_then(|c| c.parse().ok())
+                            .unwrap_or(0);
+                        let percentage = parts
+                            .last()
+                            .unwrap_or(&"")
+                            .trim_matches(['(', ')'])
+                            .to_string();
                         tools.push(AiToolUsage {
                             tool: tool_name,
                             count,
@@ -567,7 +733,10 @@ mod tests {
     fn test_mask_key() {
         assert_eq!(AiProviderManager::mask_key("sk-1234567890"), "••••••••7890");
         assert_eq!(AiProviderManager::mask_key("123"), "••••••••");
-        assert_eq!(AiProviderManager::mask_key("sk-ant-api03-abcdef12"), "••••••••ef12");
+        assert_eq!(
+            AiProviderManager::mask_key("sk-ant-api03-abcdef12"),
+            "••••••••ef12"
+        );
     }
 
     static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
@@ -576,7 +745,8 @@ mod tests {
     /// process-wide lock because env vars are global to the test process.
     fn with_isolated_home(f: impl FnOnce(&std::path::Path)) {
         let _guard = ENV_LOCK.lock().unwrap();
-        let prev = std::env::var_os("HOME");
+        let prev_home = std::env::var_os("HOME");
+        let prev_userprofile = std::env::var_os("USERPROFILE");
         let dir = std::env::temp_dir().join(format!(
             "orbit_test_home_{}_{}",
             std::process::id(),
@@ -584,12 +754,111 @@ mod tests {
         ));
         std::fs::create_dir_all(&dir).expect("create isolated home");
         std::env::set_var("HOME", &dir);
+        std::env::set_var("USERPROFILE", &dir);
         f(&dir);
-        match prev {
+        match prev_home {
             Some(v) => std::env::set_var("HOME", v),
             None => std::env::remove_var("HOME"),
         }
+        match prev_userprofile {
+            Some(v) => std::env::set_var("USERPROFILE", v),
+            None => std::env::remove_var("USERPROFILE"),
+        }
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn test_canonical_provider_id() {
+        assert_eq!(
+            AiProviderManager::canonical_provider_id("opencode-zen"),
+            "opencode"
+        );
+        assert_eq!(
+            AiProviderManager::canonical_provider_id("opencode_zen"),
+            "opencode"
+        );
+        assert_eq!(
+            AiProviderManager::canonical_provider_id("opencode"),
+            "opencode"
+        );
+        assert_eq!(
+            AiProviderManager::canonical_provider_id("openrouter"),
+            "openrouter"
+        );
+        assert_eq!(AiProviderManager::canonical_provider_id("openai"), "openai");
+    }
+
+    #[test]
+    fn test_set_provider_key_canonicalizes_zen() {
+        with_isolated_home(|_home| {
+            let mgr = AiProviderManager::new();
+
+            let summary = mgr
+                .set_provider_key("opencode-zen", "sk-zen-testkey1234567890")
+                .expect("valid save succeeds");
+            assert_eq!(summary.provider_id, "opencode");
+            assert_eq!(summary.name, "OpenCode Zen");
+            assert!(summary.connected);
+
+            // Stored under "opencode", legacy alias removed
+            let auth_path = AiProviderManager::auth_file_path();
+            let content = std::fs::read_to_string(&auth_path).expect("auth.json written");
+            let parsed: serde_json::Value = serde_json::from_str(&content).expect("valid json");
+            assert_eq!(
+                parsed
+                    .get("opencode")
+                    .and_then(|e| e.get("key"))
+                    .and_then(|k| k.as_str()),
+                Some("sk-zen-testkey1234567890")
+            );
+            assert!(parsed.get("opencode-zen").is_none());
+        });
+    }
+
+    #[test]
+    fn test_list_providers_reads_legacy_zen_and_migrates() {
+        with_isolated_home(|_home| {
+            let mgr = AiProviderManager::new();
+            let auth_path = AiProviderManager::auth_file_path();
+            if let Some(parent) = auth_path.parent() {
+                let _ = std::fs::create_dir_all(parent);
+            }
+            let legacy_json = serde_json::json!({
+                "opencode-zen": {
+                    "type": "api",
+                    "key": "sk-zen-legacy12345678"
+                }
+            });
+            std::fs::write(
+                &auth_path,
+                serde_json::to_string_pretty(&legacy_json).unwrap(),
+            )
+            .unwrap();
+
+            let providers = mgr.list_providers().expect("list succeeds");
+            let opencode_prov = providers
+                .iter()
+                .find(|p| p.provider_id == "opencode")
+                .expect("opencode found");
+            assert!(opencode_prov.connected);
+            assert_eq!(opencode_prov.name, "OpenCode Zen");
+            assert!(opencode_prov
+                .masked_credential
+                .as_deref()
+                .unwrap()
+                .ends_with("5678"));
+
+            // Check that auth.json was migrated to include "opencode"
+            let content = std::fs::read_to_string(&auth_path).expect("auth.json readable");
+            let parsed: serde_json::Value = serde_json::from_str(&content).expect("valid json");
+            assert_eq!(
+                parsed
+                    .get("opencode")
+                    .and_then(|e| e.get("key"))
+                    .and_then(|k| k.as_str()),
+                Some("sk-zen-legacy12345678")
+            );
+        });
     }
 
     #[test]
@@ -608,9 +877,16 @@ mod tests {
             assert!(summary.connected);
             // Masked only: the raw key must never appear in the summary.
             let debug = format!("{:?}", summary);
-            assert!(!debug.contains("sk-or-v1-testkey1234567890"), "raw key leaked into summary");
             assert!(
-                summary.masked_credential.as_deref().unwrap_or("").ends_with("7890"),
+                !debug.contains("sk-or-v1-testkey1234567890"),
+                "raw key leaked into summary"
+            );
+            assert!(
+                summary
+                    .masked_credential
+                    .as_deref()
+                    .unwrap_or("")
+                    .ends_with("7890"),
                 "expected masked credential, got {:?}",
                 summary.masked_credential
             );
@@ -620,13 +896,20 @@ mod tests {
             let content = std::fs::read_to_string(&auth_path).expect("auth.json written");
             let parsed: serde_json::Value = serde_json::from_str(&content).expect("valid json");
             assert_eq!(
-                parsed.get("openrouter").and_then(|e| e.get("key")).and_then(|k| k.as_str()),
+                parsed
+                    .get("openrouter")
+                    .and_then(|e| e.get("key"))
+                    .and_then(|k| k.as_str()),
                 Some("sk-or-v1-testkey1234567890")
             );
             #[cfg(unix)]
             {
                 use std::os::unix::fs::PermissionsExt;
-                let mode = std::fs::metadata(&auth_path).expect("stat").permissions().mode() & 0o777;
+                let mode = std::fs::metadata(&auth_path)
+                    .expect("stat")
+                    .permissions()
+                    .mode()
+                    & 0o777;
                 assert_eq!(mode, 0o600, "auth.json must be owner-only, got {:o}", mode);
             }
 
@@ -636,20 +919,33 @@ mod tests {
             let again = mgr
                 .set_provider_key("openrouter", "sk-or-v1-rotated0000000007")
                 .expect("overwrite succeeds");
-            assert!(again.masked_credential.as_deref().unwrap_or("").ends_with("0007"));
+            assert!(again
+                .masked_credential
+                .as_deref()
+                .unwrap_or("")
+                .ends_with("0007"));
             let content = std::fs::read_to_string(&auth_path).expect("auth.json readable");
             let parsed: serde_json::Value = serde_json::from_str(&content).expect("valid json");
             assert_eq!(
-                parsed.get("openai").and_then(|e| e.get("key")).and_then(|k| k.as_str()),
+                parsed
+                    .get("openai")
+                    .and_then(|e| e.get("key"))
+                    .and_then(|k| k.as_str()),
                 Some("sk-test-openai-abcdef")
             );
 
             // list_providers reflects the stored credential, masked only.
             let listed: Vec<AiProviderSummary> = mgr.list_providers().expect("list works");
-            let or = listed.iter().find(|p| p.provider_id == "openrouter").expect("openrouter listed");
+            let or = listed
+                .iter()
+                .find(|p| p.provider_id == "openrouter")
+                .expect("openrouter listed");
             assert!(or.connected);
             let listed_debug = format!("{:?}", or);
-            assert!(!listed_debug.contains("sk-or-v1-rotated0000000007"), "raw key leaked into list");
+            assert!(
+                !listed_debug.contains("sk-or-v1-rotated0000000007"),
+                "raw key leaked into list"
+            );
         });
     }
 
@@ -659,6 +955,7 @@ mod tests {
         assert!(providers.iter().any(|(id, _)| *id == "openai"));
         assert!(providers.iter().any(|(id, _)| *id == "anthropic"));
         assert!(providers.iter().any(|(id, _)| *id == "openrouter"));
+        assert!(providers.iter().any(|(id, _)| *id == "opencode"));
     }
 
     #[test]
@@ -713,5 +1010,37 @@ mod tests {
         assert_eq!(stats.tools.len(), 2);
         assert_eq!(stats.tools[0].tool, "read");
         assert_eq!(stats.tools[0].count, 80);
+    }
+
+    #[tokio::test]
+    async fn test_provider_opencode_and_zen_alias() {
+        let mgr = AiProviderManager::new();
+        let ok = mgr
+            .test_provider("opencode")
+            .await
+            .expect("test_provider succeeds");
+        assert!(ok, "test_provider(opencode) should be true");
+
+        let ok_alias = mgr
+            .test_provider("opencode-zen")
+            .await
+            .expect("test_provider alias succeeds");
+        assert!(ok_alias, "test_provider(opencode-zen) should be true");
+    }
+
+    #[tokio::test]
+    async fn test_list_models_opencode_dynamic() {
+        let mgr = AiProviderManager::new();
+        let models = mgr
+            .list_models(Some("opencode"))
+            .await
+            .expect("list_models succeeds");
+        assert!(!models.is_empty(), "expected models from opencode CLI");
+        assert!(models
+            .iter()
+            .any(|m| m.model_id.contains("free") || m.model_id.contains("pickle")));
+        for m in &models {
+            assert_eq!(m.provider_id, "opencode");
+        }
     }
 }

@@ -37,20 +37,17 @@ impl PtySpawner {
         cmd.env("TERM", "xterm-256color");
         cmd.env("COLORTERM", "truecolor");
 
-        let child = pair
-            .slave
-            .spawn_command(cmd)
-            .map_err(|e| ProtocolError::internal_error(format!("Failed to spawn shell '{}': {}", shell, e)))?;
+        let child = pair.slave.spawn_command(cmd).map_err(|e| {
+            ProtocolError::internal_error(format!("Failed to spawn shell '{}': {}", shell, e))
+        })?;
 
-        let writer = pair
-            .master
-            .take_writer()
-            .map_err(|e| ProtocolError::internal_error(format!("Failed to take PTY writer: {}", e)))?;
+        let writer = pair.master.take_writer().map_err(|e| {
+            ProtocolError::internal_error(format!("Failed to take PTY writer: {}", e))
+        })?;
 
-        let mut reader = pair
-            .master
-            .try_clone_reader()
-            .map_err(|e| ProtocolError::internal_error(format!("Failed to clone PTY reader: {}", e)))?;
+        let mut reader = pair.master.try_clone_reader().map_err(|e| {
+            ProtocolError::internal_error(format!("Failed to clone PTY reader: {}", e))
+        })?;
 
         let killer = child.clone_killer();
 
@@ -93,7 +90,9 @@ impl PtySpawner {
                     }
                 }
             })
-            .map_err(|e| ProtocolError::internal_error(format!("Failed to spawn reader thread: {}", e)))?;
+            .map_err(|e| {
+                ProtocolError::internal_error(format!("Failed to spawn reader thread: {}", e))
+            })?;
 
         // 2. Background Child Process Waiter Thread
         let waiter_session = Arc::clone(&session);
@@ -109,7 +108,9 @@ impl PtySpawner {
 
                 waiter_session.mark_exited(exit_code);
             })
-            .map_err(|e| ProtocolError::internal_error(format!("Failed to spawn waiter thread: {}", e)))?;
+            .map_err(|e| {
+                ProtocolError::internal_error(format!("Failed to spawn waiter thread: {}", e))
+            })?;
 
         Ok(session)
     }

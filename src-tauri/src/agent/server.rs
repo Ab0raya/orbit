@@ -270,18 +270,30 @@ impl OrbitWsServer {
                                     agent,
                                     read_only,
                                     ..
-                                } => OrbitEvent::ai_task_created(&task_id, &project_path, &agent, read_only),
+                                } => OrbitEvent::ai_task_created(
+                                    &task_id,
+                                    &project_path,
+                                    &agent,
+                                    read_only,
+                                ),
                                 AiBroadcastEvent::Started {
                                     task_id,
                                     open_code_session_id,
                                     ..
-                                } => OrbitEvent::ai_task_started(&task_id, open_code_session_id.as_deref()),
+                                } => OrbitEvent::ai_task_started(
+                                    &task_id,
+                                    open_code_session_id.as_deref(),
+                                ),
                                 AiBroadcastEvent::Updated {
                                     task_id,
                                     open_code_session_id,
                                     activity,
                                     ..
-                                } => OrbitEvent::ai_task_updated(&task_id, open_code_session_id.as_deref(), &activity),
+                                } => OrbitEvent::ai_task_updated(
+                                    &task_id,
+                                    open_code_session_id.as_deref(),
+                                    &activity,
+                                ),
                                 AiBroadcastEvent::Activity {
                                     task_id,
                                     open_code_session_id,
@@ -297,13 +309,21 @@ impl OrbitWsServer {
                                     open_code_session_id,
                                     text,
                                     ..
-                                } => OrbitEvent::ai_task_output(&task_id, open_code_session_id.as_deref(), &text),
+                                } => OrbitEvent::ai_task_output(
+                                    &task_id,
+                                    open_code_session_id.as_deref(),
+                                    &text,
+                                ),
                                 AiBroadcastEvent::ResponseChunk {
                                     task_id,
                                     open_code_session_id,
                                     text,
                                     ..
-                                } => OrbitEvent::ai_task_response(&task_id, open_code_session_id.as_deref(), &text),
+                                } => OrbitEvent::ai_task_response(
+                                    &task_id,
+                                    open_code_session_id.as_deref(),
+                                    &text,
+                                ),
                                 AiBroadcastEvent::ToolStarted {
                                     task_id,
                                     open_code_session_id,
@@ -347,12 +367,19 @@ impl OrbitWsServer {
                                     open_code_session_id,
                                     error,
                                     ..
-                                } => OrbitEvent::ai_task_failed(&task_id, open_code_session_id.as_deref(), &error),
+                                } => OrbitEvent::ai_task_failed(
+                                    &task_id,
+                                    open_code_session_id.as_deref(),
+                                    &error,
+                                ),
                                 AiBroadcastEvent::Cancelled {
                                     task_id,
                                     open_code_session_id,
                                     ..
-                                } => OrbitEvent::ai_task_cancelled(&task_id, open_code_session_id.as_deref()),
+                                } => OrbitEvent::ai_task_cancelled(
+                                    &task_id,
+                                    open_code_session_id.as_deref(),
+                                ),
                                 AiBroadcastEvent::PermissionRequested {
                                     task_id,
                                     open_code_session_id,
@@ -473,7 +500,10 @@ impl OrbitWsServer {
                 );
             }
             Err(e) => {
-                eprintln!("[Orbit WS] WebSocket handshake failed for {}: {}", peer_addr, e);
+                eprintln!(
+                    "[Orbit WS] WebSocket handshake failed for {}: {}",
+                    peer_addr, e
+                );
             }
         }
     }

@@ -42,6 +42,7 @@ pub struct OrbitAgent {
     terminal_manager: Arc<TerminalManager>,
     file_manager: Arc<FileManager>,
     project_manager: Arc<ProjectManager>,
+    opencode_manager: Arc<crate::opencode_manager::OpencodeManager>,
     ai_task_manager: Arc<AiTaskManager>,
     script_manager: Arc<ScriptManager>,
 }
@@ -61,7 +62,12 @@ impl OrbitAgent {
         let terminal_manager = Arc::new(TerminalManager::new());
         let file_manager = Arc::new(FileManager::new());
         let project_manager = Arc::new(ProjectManager::new());
-        let ai_task_manager = Arc::new(AiTaskManager::new(Arc::clone(&project_manager)));
+        let opencode_manager =
+            Arc::new(crate::opencode_manager::OpencodeManager::with_default_dir());
+        let ai_task_manager = Arc::new(AiTaskManager::with_opencode_manager(
+            Arc::clone(&project_manager),
+            Arc::clone(&opencode_manager),
+        ));
         let script_manager = Arc::new(
             ScriptManager::new().unwrap_or_else(|e| {
                 eprintln!("[Orbit ScriptManager] Warning: failed to init default store: {:?}, falling back to in-memory", e);
@@ -94,6 +100,7 @@ impl OrbitAgent {
             terminal_manager,
             file_manager,
             project_manager,
+            opencode_manager,
             ai_task_manager,
             script_manager,
         }
@@ -119,7 +126,11 @@ impl OrbitAgent {
         };
 
         AgentStatus {
-            status: if running { "online".to_string() } else { "offline".to_string() },
+            status: if running {
+                "online".to_string()
+            } else {
+                "offline".to_string()
+            },
             uptime_seconds,
             started_at: self.started_at_unix,
             connected_devices: self.session_manager.paired_connected_count(),
@@ -177,6 +188,10 @@ impl OrbitAgent {
 
     pub fn ai_task_manager(&self) -> Arc<AiTaskManager> {
         Arc::clone(&self.ai_task_manager)
+    }
+
+    pub fn opencode_manager(&self) -> Arc<crate::opencode_manager::OpencodeManager> {
+        Arc::clone(&self.opencode_manager)
     }
 
     pub fn script_manager(&self) -> Arc<ScriptManager> {

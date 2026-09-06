@@ -46,15 +46,11 @@ pub fn open_tailscale(url: Option<String>) -> Result<(), String> {
     }
     #[cfg(target_os = "macos")]
     {
-        let _ = std::process::Command::new("open")
-            .arg(&target)
-            .spawn();
+        let _ = std::process::Command::new("open").arg(&target).spawn();
     }
     #[cfg(target_os = "linux")]
     {
-        let _ = std::process::Command::new("xdg-open")
-            .arg(&target)
-            .spawn();
+        let _ = std::process::Command::new("xdg-open").arg(&target).spawn();
     }
     Ok(())
 }
@@ -150,7 +146,9 @@ pub fn resize_terminal(
 }
 
 #[tauri::command]
-pub fn get_file_roots(state: State<'_, AppState>) -> Result<Vec<crate::files::manager::FileRoot>, String> {
+pub fn get_file_roots(
+    state: State<'_, AppState>,
+) -> Result<Vec<crate::files::manager::FileRoot>, String> {
     Ok(state.agent.file_manager().roots())
 }
 
@@ -307,10 +305,15 @@ pub fn delete_ai_conversation(
     delete_session: Option<bool>,
 ) -> Result<(), String> {
     if delete_session.unwrap_or(false) {
-        if let Ok(Some(conv)) = state.agent.ai_task_manager().conversation_store().get_conversation(&conversation_id) {
+        if let Ok(Some(conv)) = state
+            .agent
+            .ai_task_manager()
+            .conversation_store()
+            .get_conversation(&conversation_id)
+        {
             if let Some(ref sid) = conv.open_code_session_id {
                 if let Ok(bin) = crate::ai::process::find_opencode_binary() {
-                    let _ = std::process::Command::new(bin)
+                    let _ = crate::opencode_manager::new_std_command(bin)
                         .args(["session", "delete", sid])
                         .output();
                 }
@@ -346,9 +349,16 @@ pub fn export_ai_conversation(
     format: Option<String>,
 ) -> Result<String, String> {
     let store = state.agent.ai_task_manager().conversation_store();
-    match format.as_deref().unwrap_or("markdown").to_lowercase().as_str() {
+    match format
+        .as_deref()
+        .unwrap_or("markdown")
+        .to_lowercase()
+        .as_str()
+    {
         "json" => store.export_json(&conversation_id).map_err(|e| e.message),
-        _ => store.export_markdown(&conversation_id).map_err(|e| e.message),
+        _ => store
+            .export_markdown(&conversation_id)
+            .map_err(|e| e.message),
     }
 }
 
@@ -411,10 +421,7 @@ pub async fn resume_ai_task(
 }
 
 #[tauri::command]
-pub async fn cancel_ai_task(
-    state: State<'_, AppState>,
-    task_id: String,
-) -> Result<(), String> {
+pub async fn cancel_ai_task(state: State<'_, AppState>, task_id: String) -> Result<(), String> {
     state
         .agent
         .ai_task_manager()
@@ -450,10 +457,7 @@ pub fn set_ai_provider_key(
 }
 
 #[tauri::command]
-pub fn logout_ai_provider(
-    state: State<'_, AppState>,
-    provider_id: String,
-) -> Result<(), String> {
+pub fn logout_ai_provider(state: State<'_, AppState>, provider_id: String) -> Result<(), String> {
     state
         .agent
         .ai_task_manager()
@@ -556,11 +560,7 @@ pub fn get_script(
     state: State<'_, AppState>,
     id: String,
 ) -> Result<Option<crate::scripts::Script>, String> {
-    state
-        .agent
-        .script_manager()
-        .get(&id)
-        .map_err(|e| e.message)
+    state.agent.script_manager().get(&id).map_err(|e| e.message)
 }
 
 #[tauri::command]
@@ -576,10 +576,7 @@ pub fn save_script(
 }
 
 #[tauri::command]
-pub fn delete_script(
-    state: State<'_, AppState>,
-    id: String,
-) -> Result<bool, String> {
+pub fn delete_script(state: State<'_, AppState>, id: String) -> Result<bool, String> {
     state
         .agent
         .script_manager()
@@ -587,3 +584,27 @@ pub fn delete_script(
         .map_err(|e| e.message)
 }
 
+#[tauri::command]
+pub fn get_opencode_status(
+    state: State<'_, AppState>,
+) -> crate::opencode_manager::OpencodeStatusPayload {
+    state.agent.opencode_manager().status_payload()
+}
+
+#[tauri::command]
+pub async fn install_opencode(
+    state: State<'_, AppState>,
+) -> Result<crate::opencode_manager::OpencodeStatusPayload, String> {
+    let mgr = state.agent.opencode_manager();
+    mgr.install().await;
+    Ok(mgr.status_payload())
+}
+
+#[tauri::command]
+pub async fn update_opencode(
+    state: State<'_, AppState>,
+) -> Result<crate::opencode_manager::OpencodeStatusPayload, String> {
+    let mgr = state.agent.opencode_manager();
+    mgr.update().await;
+    Ok(mgr.status_payload())
+}

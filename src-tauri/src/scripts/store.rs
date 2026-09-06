@@ -1,6 +1,6 @@
+use rusqlite::{params, Connection, OptionalExtension};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
-use rusqlite::{params, Connection, OptionalExtension};
 
 use crate::protocol::errors::ProtocolError;
 use crate::scripts::models::Script;
@@ -12,8 +12,12 @@ pub struct ScriptStore {
 
 impl ScriptStore {
     pub fn new_in_memory() -> Result<Self, ProtocolError> {
-        let conn = Connection::open_in_memory()
-            .map_err(|e| ProtocolError::internal_error(format!("Failed to open in-memory SQLite for scripts: {}", e)))?;
+        let conn = Connection::open_in_memory().map_err(|e| {
+            ProtocolError::internal_error(format!(
+                "Failed to open in-memory SQLite for scripts: {}",
+                e
+            ))
+        })?;
         let store = Self {
             conn: Arc::new(Mutex::new(conn)),
             db_path: None,
@@ -26,8 +30,12 @@ impl ScriptStore {
         if let Some(parent) = path.parent() {
             let _ = std::fs::create_dir_all(parent);
         }
-        let conn = Connection::open(path)
-            .map_err(|e| ProtocolError::internal_error(format!("Failed to open SQLite database at {:?}: {}", path, e)))?;
+        let conn = Connection::open(path).map_err(|e| {
+            ProtocolError::internal_error(format!(
+                "Failed to open SQLite database at {:?}: {}",
+                path, e
+            ))
+        })?;
         let store = Self {
             conn: Arc::new(Mutex::new(conn)),
             db_path: Some(path.to_path_buf()),
@@ -69,7 +77,9 @@ impl ScriptStore {
             CREATE INDEX IF NOT EXISTS idx_scripts_updated_at ON scripts(updated_at DESC);
             "#,
         )
-        .map_err(|e| ProtocolError::internal_error(format!("Failed to init scripts tables: {}", e)))?;
+        .map_err(|e| {
+            ProtocolError::internal_error(format!("Failed to init scripts tables: {}", e))
+        })?;
 
         Ok(())
     }
@@ -203,11 +213,11 @@ impl ScriptStore {
 
     pub fn delete(&self, id: &str) -> Result<bool, ProtocolError> {
         let conn = self.conn.lock().unwrap();
-        let affected = conn.execute(
-            "DELETE FROM scripts WHERE id = ?1",
-            params![id],
-        )
-        .map_err(|e| ProtocolError::internal_error(format!("Failed to delete script: {}", e)))?;
+        let affected = conn
+            .execute("DELETE FROM scripts WHERE id = ?1", params![id])
+            .map_err(|e| {
+                ProtocolError::internal_error(format!("Failed to delete script: {}", e))
+            })?;
 
         Ok(affected > 0)
     }

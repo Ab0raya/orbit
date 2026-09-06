@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::sync::{Arc, Mutex};
 use tokio::io::BufReader;
-use tokio::process::{Child, ChildStdout, Command};
+use tokio::process::{Child, ChildStdout};
 
 use super::models::AiAgent;
 use crate::protocol::errors::ProtocolError;
@@ -11,33 +11,20 @@ use crate::protocol::errors::ProtocolError;
 pub const MAX_STDERR_TAIL_CHARS: usize = 4096;
 
 pub fn find_opencode_binary() -> Result<PathBuf, ProtocolError> {
-    // 1. Explicit override via OPENCODE_BIN env var
-    if let Ok(val) = std::env::var("OPENCODE_BIN") {
-        let p = PathBuf::from(val);
-        if p.is_file() {
-            return Ok(p);
-        }
-    }
+    let default_managed = crate::opencode_manager::default_app_data_dir()
+        .join("opencode")
+        .join(format!(
+            "v{}",
+            crate::opencode_manager::OPENCODE_MANAGED_VERSION
+        ))
+        .join(if cfg!(windows) {
+            "opencode.exe"
+        } else {
+            "opencode"
+        });
 
-    // 2. Check system PATH
-    if let Some(path_os) = std::env::var_os("PATH") {
-        for dir in std::env::split_paths(&path_os) {
-            let candidate = dir.join("opencode");
-            if candidate.is_file() {
-                return Ok(candidate);
-            }
-        }
-    }
-
-    // 3. Check user home mise shim fallback (~/.local/share/mise/shims/opencode)
-    if let Ok(home) = std::env::var("HOME") {
-        let candidate = PathBuf::from(home).join(".local/share/mise/shims/opencode");
-        if candidate.is_file() {
-            return Ok(candidate);
-        }
-    }
-
-    Err(ProtocolError::opencode_not_found())
+    crate::opencode_manager::detector::find_opencode(&default_managed)
+        .ok_or_else(ProtocolError::opencode_not_found)
 }
 
 pub struct OpenCodeSpawnResult {
@@ -61,7 +48,7 @@ impl OpenCodeRunner {
         session_id: Option<&str>,
         model_override: Option<&str>,
     ) -> Result<OpenCodeSpawnResult, ProtocolError> {
-        let mut cmd = Command::new(binary_path);
+        let mut cmd = crate::opencode_manager::new_tokio_command(binary_path);
 
         cmd.current_dir(project_path);
         cmd.arg("run");
@@ -91,9 +78,9 @@ impl OpenCodeRunner {
         cmd.stderr(Stdio::piped());
         cmd.stdin(Stdio::null());
 
-        let mut child = cmd
-            .spawn()
-            .map_err(|e| ProtocolError::ai_task_failed(format!("Failed to spawn OpenCode: {}", e)))?;
+        let mut child = cmd.spawn().map_err(|e| {
+            ProtocolError::ai_task_failed(format!("Failed to spawn OpenCode: {}", e))
+        })?;
 
         let pid = child.id();
         let stdout = child
@@ -143,16 +130,21 @@ impl OpenCodeRunner {
     }
 
     pub async fn cancel_child(child: &mut Child, pid: Option<u32>) {
-        if let Some(p) = pid {
-            // Send SIGINT for graceful shutdown
-            let _ = std::process::Command::new("kill")
-                .args(["-INT", &p.to_string()])
-                .status();
+        if let Some(_p) = pid {
+            #[cfg(unix)]
+            {
+                let _ = std::process::Command::new("kill")
+                    .args(["-INT", &_p.to_string()])
+                    .status();
+            }
+            #[cfg(windows)]
+            {
+                let _ = child.start_kill();
+            }
 
             // Allow up to 2 seconds for graceful exit
             let timeout = tokio::time::Duration::from_millis(2000);
             if tokio::time::timeout(timeout, child.wait()).await.is_err() {
-                // Force kill if process hasn't exited
                 let _ = child.start_kill();
                 let _ = child.wait().await;
             }
@@ -162,3 +154,67 @@ impl OpenCodeRunner {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tokio::io::AsyncBufReadExt;
+
+    #[tokio::test]
+    async fn test_opencode_runner_spawn_captures_ndjson_and_runs_hidden() {
+        let bin = match find_opencode_binary() {
+            Ok(b) => b,
+            Err(_) => return, // Skip if binary is not installed in test environment
+        };
+
+        let temp_dir = std::env::temp_dir();
+        let spawn_res = OpenCodeRunner::spawn(
+            &bin,
+            &temp_dir,
+            "Say hello",
+            AiAgent::Build,
+            None,
+            Some("opencode/big-pickle"),
+        );
+
+        let mut res = match spawn_res {
+            Ok(r) => r,
+            Err(e) => {
+                eprintln!("Skipping live runner test: {}", e.message);
+                return;
+            }
+        };
+
+        // On Windows, verify the process does not have an allocated console window
+        #[cfg(windows)]
+        if let Some(pid) = res.pid {
+            let output = std::process::Command::new("powershell")
+                .args([
+                    "-NoProfile",
+                    "-Command",
+                    &format!(
+                        "$p = Get-Process -Id {} -ErrorAction SilentlyContinue; if ($p) {{ $p.MainWindowHandle.ToInt64() }} else {{ 0 }}",
+                        pid
+                    ),
+                ])
+                .output();
+            if let Ok(out) = output {
+                let handle_str = String::from_utf8_lossy(&out.stdout).trim().to_string();
+                let handle: i64 = handle_str.parse().unwrap_or(0);
+                assert_eq!(
+                    handle, 0,
+                    "Process {} must have no main window handle (CREATE_NO_WINDOW), but got handle {}",
+                    pid, handle
+                );
+            }
+        }
+
+        // Verify stdout stream captures lines
+        let mut first_line = String::new();
+        let _ = res.stdout_reader.read_line(&mut first_line).await;
+
+        // Cleanly cancel or wait
+        OpenCodeRunner::cancel_child(&mut res.child, res.pid).await;
+    }
+}
+

@@ -102,7 +102,11 @@ impl PermissionManager {
     }
 
     /// Classify action risk independently based on tool and patterns.
-    pub fn classify_risk(tool: &str, patterns: &[String], _metadata: &serde_json::Value) -> AiPermissionRisk {
+    pub fn classify_risk(
+        tool: &str,
+        patterns: &[String],
+        _metadata: &serde_json::Value,
+    ) -> AiPermissionRisk {
         let tool_lower = tool.to_lowercase();
 
         // Destructive file deletion or tool actions
@@ -115,7 +119,11 @@ impl PermissionManager {
         }
 
         // Bash commands analysis
-        if tool_lower == "bash" || tool_lower == "terminal" || tool_lower == "cmd" || tool_lower == "sh" {
+        if tool_lower == "bash"
+            || tool_lower == "terminal"
+            || tool_lower == "cmd"
+            || tool_lower == "sh"
+        {
             for pattern in patterns {
                 let p = pattern.trim().to_lowercase();
                 // Destructive patterns
@@ -174,7 +182,11 @@ impl PermissionManager {
     /// Derive a human-readable action description.
     pub fn derive_action_description(tool: &str, target: &str) -> String {
         let tool_lower = tool.to_lowercase();
-        if tool_lower == "bash" || tool_lower == "terminal" || tool_lower == "cmd" || tool_lower == "sh" {
+        if tool_lower == "bash"
+            || tool_lower == "terminal"
+            || tool_lower == "cmd"
+            || tool_lower == "sh"
+        {
             format!("run command: {}", target)
         } else if tool_lower == "edit" || tool_lower == "write" || tool_lower == "patch" {
             format!("modify file: {}", target)
@@ -260,9 +272,12 @@ impl PermissionManager {
     ) -> Result<AiPermissionRequest, ProtocolError> {
         let updated_req = {
             let mut reqs = self.requests.write().unwrap();
-            let req = reqs
-                .get_mut(permission_id)
-                .ok_or_else(|| ProtocolError::ai_task_failed(format!("Permission request '{}' not found", permission_id)))?;
+            let req = reqs.get_mut(permission_id).ok_or_else(|| {
+                ProtocolError::ai_task_failed(format!(
+                    "Permission request '{}' not found",
+                    permission_id
+                ))
+            })?;
 
             // 1. Ownership check: calling device MUST match the device that initiated the task
             if req.device_id != calling_device_id {
@@ -334,12 +349,19 @@ impl PermissionManager {
     }
 
     /// Get a permission request by ID with ownership check.
-    pub fn get_request(&self, device_id: &str, permission_id: &str) -> Result<AiPermissionRequest, ProtocolError> {
+    pub fn get_request(
+        &self,
+        device_id: &str,
+        permission_id: &str,
+    ) -> Result<AiPermissionRequest, ProtocolError> {
         self.check_and_expire();
         let reqs = self.requests.read().unwrap();
-        let req = reqs
-            .get(permission_id)
-            .ok_or_else(|| ProtocolError::ai_task_failed(format!("Permission request '{}' not found", permission_id)))?;
+        let req = reqs.get(permission_id).ok_or_else(|| {
+            ProtocolError::ai_task_failed(format!(
+                "Permission request '{}' not found",
+                permission_id
+            ))
+        })?;
 
         if req.device_id != device_id {
             return Err(ProtocolError::unauthorized(

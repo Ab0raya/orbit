@@ -55,10 +55,7 @@ impl MessageRouter {
             .unwrap_or("unknown")
             .to_string();
 
-        let msg_type = json_val
-            .get("type")
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
+        let msg_type = json_val.get("type").and_then(|v| v.as_str()).unwrap_or("");
 
         if msg_type != "request" {
             eprintln!(
@@ -108,9 +105,7 @@ impl MessageRouter {
                 OrbitResponse::error(
                     &request.id,
                     &request.action,
-                    ProtocolError::unauthorized(
-                        "Device must be paired to access this resource.",
-                    ),
+                    ProtocolError::unauthorized("Device must be paired to access this resource."),
                 ),
                 None,
             );
@@ -135,49 +130,122 @@ impl MessageRouter {
             "files.roots" => (ActionHandlers::handle_files_roots(&request, ctx), None),
             "files.list" => (ActionHandlers::handle_files_list(&request, ctx), None),
             "files.read" => (ActionHandlers::handle_files_read(&request, ctx), None),
-            "files.read_binary" => (ActionHandlers::handle_files_read_binary(&request, ctx), None),
+            "files.read_binary" => (
+                ActionHandlers::handle_files_read_binary(&request, ctx),
+                None,
+            ),
             "files.write" => (ActionHandlers::handle_files_write(&request, ctx), None),
             "files.mkdir" => (ActionHandlers::handle_files_mkdir(&request, ctx), None),
             "files.rename" => (ActionHandlers::handle_files_rename(&request, ctx), None),
             "files.delete" => (ActionHandlers::handle_files_delete(&request, ctx), None),
-            "files.search" | "search.files" => (ActionHandlers::handle_files_search(&request, ctx), None),
+            "files.search" | "search.files" => {
+                (ActionHandlers::handle_files_search(&request, ctx), None)
+            }
             "projects.roots" => (ActionHandlers::handle_projects_roots(&request, ctx), None),
             "projects.list" => (ActionHandlers::handle_projects_list(&request, ctx), None),
             "projects.info" => (ActionHandlers::handle_projects_info(&request, ctx), None),
             "git.status" => (ActionHandlers::handle_git_status(&request, ctx), None),
             "git.branches" => (ActionHandlers::handle_git_branches(&request, ctx), None),
             "git.checkout" => (ActionHandlers::handle_git_checkout(&request, ctx), None),
-            "git.create_branch" => (ActionHandlers::handle_git_create_branch(&request, ctx), None),
+            "git.create_branch" => (
+                ActionHandlers::handle_git_create_branch(&request, ctx),
+                None,
+            ),
             "git.stage" => (ActionHandlers::handle_git_stage(&request, ctx), None),
             "git.unstage" => (ActionHandlers::handle_git_unstage(&request, ctx), None),
             "git.commit" => (ActionHandlers::handle_git_commit(&request, ctx), None),
             "git.log" => (ActionHandlers::handle_git_log(&request, ctx), None),
-            "ai.task.start" => (ActionHandlers::handle_ai_task_start(&request, ctx).await, None),
-            "ai.task.resume" => (ActionHandlers::handle_ai_task_resume(&request, ctx).await, None),
-            "ai.task.cancel" => (ActionHandlers::handle_ai_task_cancel(&request, ctx).await, None),
+            "ai.task.start" => (
+                ActionHandlers::handle_ai_task_start(&request, ctx).await,
+                None,
+            ),
+            "ai.task.resume" => (
+                ActionHandlers::handle_ai_task_resume(&request, ctx).await,
+                None,
+            ),
+            "ai.task.cancel" => (
+                ActionHandlers::handle_ai_task_cancel(&request, ctx).await,
+                None,
+            ),
             "ai.task.list" => (ActionHandlers::handle_ai_task_list(&request, ctx), None),
-            "ai.task.get" => (ActionHandlers::handle_ai_task_get(&request, ctx).await, None),
-            "ai.permission.resolve" => (ActionHandlers::handle_ai_permission_resolve(&request, ctx).await, None),
-            "ai.permission.list" => (ActionHandlers::handle_ai_permission_list(&request, ctx), None),
-            "ai.conversation.create" => (ActionHandlers::handle_ai_conversation_create(&request, ctx), None),
-            "ai.conversation.list" => (ActionHandlers::handle_ai_conversation_list(&request, ctx), None),
-            "ai.conversation.get" => (ActionHandlers::handle_ai_conversation_get(&request, ctx), None),
-            "ai.conversation.rename" => (ActionHandlers::handle_ai_conversation_rename(&request, ctx), None),
-            "ai.conversation.delete" => (ActionHandlers::handle_ai_conversation_delete(&request, ctx), None),
-            "ai.conversation.search" => (ActionHandlers::handle_ai_conversation_search(&request, ctx), None),
-            "ai.conversation.export" => (ActionHandlers::handle_ai_conversation_export(&request, ctx), None),
-            "ai.providers.list" => (ActionHandlers::handle_ai_providers_list(&request, ctx), None),
+            "ai.task.get" => (
+                ActionHandlers::handle_ai_task_get(&request, ctx).await,
+                None,
+            ),
+            "ai.permission.resolve" => (
+                ActionHandlers::handle_ai_permission_resolve(&request, ctx).await,
+                None,
+            ),
+            "ai.permission.list" => (
+                ActionHandlers::handle_ai_permission_list(&request, ctx),
+                None,
+            ),
+            "ai.conversation.create" => (
+                ActionHandlers::handle_ai_conversation_create(&request, ctx),
+                None,
+            ),
+            "ai.conversation.list" => (
+                ActionHandlers::handle_ai_conversation_list(&request, ctx),
+                None,
+            ),
+            "ai.conversation.get" => (
+                ActionHandlers::handle_ai_conversation_get(&request, ctx),
+                None,
+            ),
+            "ai.conversation.rename" => (
+                ActionHandlers::handle_ai_conversation_rename(&request, ctx),
+                None,
+            ),
+            "ai.conversation.delete" => (
+                ActionHandlers::handle_ai_conversation_delete(&request, ctx),
+                None,
+            ),
+            "ai.conversation.search" => (
+                ActionHandlers::handle_ai_conversation_search(&request, ctx),
+                None,
+            ),
+            "ai.conversation.export" => (
+                ActionHandlers::handle_ai_conversation_export(&request, ctx),
+                None,
+            ),
+            "ai.providers.list" => (
+                ActionHandlers::handle_ai_providers_list(&request, ctx),
+                None,
+            ),
             "ai.provider.get" => (ActionHandlers::handle_ai_provider_get(&request, ctx), None),
-            "ai.provider.auth_status" => (ActionHandlers::handle_ai_provider_auth_status(&request, ctx), None),
-            "ai.provider.login" => (ActionHandlers::handle_ai_provider_login(&request, ctx), None),
-            "ai.provider.logout" => (ActionHandlers::handle_ai_provider_logout(&request, ctx), None),
-            "ai.provider.test" => (ActionHandlers::handle_ai_provider_test(&request, ctx).await, None),
-            "ai.models.list" => (ActionHandlers::handle_ai_models_list(&request, ctx).await, None),
-            "ai.model.set_default" => (ActionHandlers::handle_ai_model_set_default(&request, ctx), None),
-            "ai.usage.get" => (ActionHandlers::handle_ai_usage_get(&request, ctx).await, None),
+            "ai.provider.auth_status" => (
+                ActionHandlers::handle_ai_provider_auth_status(&request, ctx),
+                None,
+            ),
+            "ai.provider.login" => (
+                ActionHandlers::handle_ai_provider_login(&request, ctx),
+                None,
+            ),
+            "ai.provider.logout" => (
+                ActionHandlers::handle_ai_provider_logout(&request, ctx),
+                None,
+            ),
+            "ai.provider.test" => (
+                ActionHandlers::handle_ai_provider_test(&request, ctx).await,
+                None,
+            ),
+            "ai.models.list" => (
+                ActionHandlers::handle_ai_models_list(&request, ctx).await,
+                None,
+            ),
+            "ai.model.set_default" => (
+                ActionHandlers::handle_ai_model_set_default(&request, ctx),
+                None,
+            ),
+            "ai.usage.get" => (
+                ActionHandlers::handle_ai_usage_get(&request, ctx).await,
+                None,
+            ),
             "scripts.list" => (ActionHandlers::handle_scripts_list(&request, ctx), None),
             "scripts.get" => (ActionHandlers::handle_scripts_get(&request, ctx), None),
-            "scripts.save" | "scripts.create" => (ActionHandlers::handle_scripts_save(&request, ctx), None),
+            "scripts.save" | "scripts.create" => {
+                (ActionHandlers::handle_scripts_save(&request, ctx), None)
+            }
             "scripts.delete" => (ActionHandlers::handle_scripts_delete(&request, ctx), None),
             unknown => {
                 println!(
@@ -200,8 +268,6 @@ impl MessageRouter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::net::{IpAddr, Ipv4Addr, SocketAddr};
-    use std::sync::{Arc, RwLock};
     use crate::agent::pairing::PairingManager;
     use crate::agent::session::SessionManager;
     use crate::agent::system::SystemManager;
@@ -209,6 +275,8 @@ mod tests {
     use crate::files::FileManager;
     use crate::projects::ProjectManager;
     use crate::terminal::TerminalManager;
+    use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+    use std::sync::{Arc, RwLock};
 
     fn test_context(is_paired: bool) -> (ActionContext, String) {
         let pairing_mgr = Arc::new(RwLock::new(PairingManager::new()));
@@ -330,7 +398,8 @@ mod tests {
         let valid_code = ctx.pairing_manager.read().unwrap().get_info().code;
 
         // Invalid code
-        let invalid_req = r#"{"id":"p1","type":"request","action":"pairing.verify","payload":{"code":"000000"}}"#;
+        let invalid_req =
+            r#"{"id":"p1","type":"request","action":"pairing.verify","payload":{"code":"000000"}}"#;
         let (res, _) = MessageRouter::route(invalid_req, &ctx).await;
         assert!(!res.success);
         assert_eq!(res.error.unwrap().code, "INVALID_PAIRING_CODE");
@@ -359,7 +428,9 @@ mod tests {
     #[tokio::test]
     async fn test_expired_pairing() {
         use std::time::Duration;
-        let pairing_mgr = Arc::new(RwLock::new(PairingManager::new_with_ttl(Duration::from_millis(5))));
+        let pairing_mgr = Arc::new(RwLock::new(PairingManager::new_with_ttl(
+            Duration::from_millis(5),
+        )));
         let code = pairing_mgr.read().unwrap().get_info().code;
 
         tokio::time::sleep(Duration::from_millis(15)).await; // Guarantee expiration
@@ -472,10 +543,14 @@ mod tests {
         assert_eq!(saved_script["name"], "Test Script");
 
         // 2. List scripts
-        let list_req = r#"{"id": "s2", "type": "request", "action": "scripts.list", "payload": {}}"#;
+        let list_req =
+            r#"{"id": "s2", "type": "request", "action": "scripts.list", "payload": {}}"#;
         let (list_res, _) = MessageRouter::route(list_req, &ctx).await;
         assert!(list_res.success);
-        let scripts = list_res.payload.unwrap()["scripts"].as_array().unwrap().clone();
+        let scripts = list_res.payload.unwrap()["scripts"]
+            .as_array()
+            .unwrap()
+            .clone();
         assert_eq!(scripts.len(), 1);
 
         // 3. Get script
@@ -497,4 +572,3 @@ mod tests {
         assert_eq!(del_res.payload.unwrap()["deleted"], true);
     }
 }
-

@@ -1,7 +1,18 @@
-import React from "react";
-import { Home, Folder, Terminal, Settings, HelpCircle, Search, Bot, ScrollText } from "lucide-react";
+import React, { useEffect, useState, useCallback } from "react";
+import {
+  Home,
+  Folder,
+  Terminal,
+  Settings,
+  HelpCircle,
+  Search,
+  Bot,
+  ScrollText,
+} from "lucide-react";
 import { AppTab } from "./Header";
 import { OrbitLogo } from "./OrbitLogo";
+import { aiService } from "../services/aiService";
+import { OpencodeStatusPayload } from "../types/ai";
 
 interface SidebarProps {
   activeTab: AppTab;
@@ -9,6 +20,25 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ activeTab, onSelectTab }) => {
+  const [opencodeStatus, setOpencodeStatus] = useState<OpencodeStatusPayload | null>(null);
+
+  const checkStatus = useCallback(async () => {
+    try {
+      const status = await aiService.getOpencodeStatus();
+      setOpencodeStatus(status);
+    } catch (err: any) {
+      console.warn("Failed to query OpenCode status in sidebar:", err);
+    }
+  }, []);
+
+  useEffect(() => {
+    checkStatus();
+    const interval = setInterval(checkStatus, 10000);
+    return () => clearInterval(interval);
+  }, [checkStatus]);
+
+  const isReady = opencodeStatus?.isReady === true;
+
   return (
     <aside className="orbit-desktop-sidebar">
       {/* Brand Header */}
@@ -96,6 +126,35 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, onSelectTab }) => {
       </nav>
 
       <div className="sidebar-spacer" />
+
+      {/* OpenCode AI Notification Card (Cosmic Aesthetic with Abstract Glowing Orbs) */}
+      <div className="sidebar-cosmic-card sidebar-ai-card sidebar-opencode-card" data-testid="sidebar-opencode-card">
+        <div className="cosmic-orbs-group" aria-hidden="true">
+          <div className="cosmic-orb orb-large-top-right" />
+          <div className="cosmic-orb orb-emerald-ambient" />
+          <div className="cosmic-orb orb-medium-bottom-left" />
+          <div className="cosmic-orb orb-mid-right" />
+          <div className="cosmic-orb orb-small-bottom" />
+          <div className="cosmic-orb orb-micro-1" />
+          <div className="cosmic-orb orb-micro-2" />
+          <div className="cosmic-orb orb-micro-3" />
+        </div>
+        <div className="cosmic-content">
+          <div className="cosmic-title">
+            Unlock<br />
+            Orbit AI
+          </div>
+          <p className="cosmic-description">
+            Install OpenCode to get the full Orbit experience.
+          </p>
+          <div className={`cosmic-status-line ${isReady ? "status-ready" : "status-required"}`}>
+            <span className="cosmic-status-dot" />
+            <span className="cosmic-status-text">
+              {isReady ? "OpenCode ready" : "OpenCode required"}
+            </span>
+          </div>
+        </div>
+      </div>
 
       {/* Bottom Cosmic Feature */}
       <div className="sidebar-cosmic-card">

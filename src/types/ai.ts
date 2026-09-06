@@ -124,3 +124,14 @@ export interface AiTaskSummary {
   conversationId?: string;
   model?: string;
 }
+
+export interface OpencodeStatusPayload {
+  state: "checking" | "installing" | "updating" | "ready" | "error";
+  userMessage: string;
+  isReady: boolean;
+  version?: string | null;
+  path?: string | null;
+  progress?: string | null;
+  error?: string | null;
+}
+
